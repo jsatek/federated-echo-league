@@ -18,7 +18,7 @@ test("both Heroes walk from their bases to the middle of the Lane", async () => 
   for (const unit of replay.units) {
     const { x } = replay.tracks[unit.id]!;
     const base = replay.map.bases[unit.team].x;
-    expect(Math.abs(x[0]! - base)).toBeLessThanOrEqual(160);
+    expect(Math.abs(x[0]! - base)).toBeLessThanOrEqual(replay.map.baseRadius);
     expect(Math.abs(x.at(-1)! - middle)).toBeLessThanOrEqual(250);
   }
 });

@@ -4,14 +4,20 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One command produces a Replay file from a Seed
-- [ ] Running it twice with the same Seed produces a byte-identical Replay (automated test)
-- [ ] The sim only talks to the bot through `contract`; the viewer depends only on `replay`
-- [ ] The viewer plays the Replay with interpolation between Track samples and fits a 400px-wide screen
-- [ ] The Replay format carries a version number, and the viewer refuses an unknown version with a clear message
+- [x] One command produces a Replay file from a Seed
+- [x] Running it twice with the same Seed produces a byte-identical Replay (automated test)
+- [x] The sim only talks to the bot through `contract`; the viewer depends only on `replay`
+- [x] The viewer plays the Replay with interpolation between Track samples and fits a 400px-wide screen
+- [x] The Replay format carries a version number, and the viewer refuses an unknown version with a clear message
 
 ## Comments
 
 The "single command runs a Match from a Seed" lives in the `runner` package (ADR-0016). `runner` depends on `sim`, `ai`, `contract` and `replay`.
+
+**Done (agent).** `pnpm match --seed 7` writes `replays/seed-7.replay.json.gz`, and `pnpm viewer` plays it (`?replay=<file>`). The tests cover byte-identical Replays per Seed, Hero movement, refused Intents, Vision filtering in the Observation, the Replay round trip and version refusal, and viewer interpolation. Screenshots at 400px: `ticket-02-viewer.png`.
+
+Decision during the build: the sim and each Team's AI draw from separate random streams hashed from the one Seed (ADR-0017, clarifying ADR-0004).
+
+New glossary terms: Observation, Track.

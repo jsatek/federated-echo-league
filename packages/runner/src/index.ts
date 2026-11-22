@@ -17,7 +17,8 @@ import { createSim } from "@fel/sim";
 /** ADR-0008: Tracks are sampled at 10 Hz, every other Tick. */
 const SAMPLE_EVERY_TICKS = 2;
 
-export interface Lineup {
+/** One Hero in a Match and the Player controlling it. */
+export interface LineupSlot {
   id: string;
   team: TeamId;
   hero: HeroKind;
@@ -25,7 +26,7 @@ export interface Lineup {
 }
 
 /** The walking-skeleton matchup: one Lane, Warden vs Lumen. */
-export const DEFAULT_LINEUP: readonly Lineup[] = [
+export const DEFAULT_LINEUP: readonly LineupSlot[] = [
   { id: "blue-warden", team: "blue", hero: "warden", player: "Kestrel" },
   { id: "red-lumen", team: "red", hero: "lumen", player: "Magpie" },
 ];
@@ -33,16 +34,15 @@ export const DEFAULT_LINEUP: readonly Lineup[] = [
 export interface MatchOptions {
   seed: number;
   durationSeconds?: number;
-  lineup?: readonly Lineup[];
+  lineup?: readonly LineupSlot[];
 }
 
 export function runMatch({ seed, durationSeconds = 30, lineup = DEFAULT_LINEUP }: MatchOptions): Replay {
   const durationTicks = durationSeconds * TICKS_PER_SECOND;
   const sim = createSim({ seed, heroes: lineup });
-  // Each Team's AI gets its own stream of randomness, derived from the Seed.
   const ais: Record<TeamId, TeamAi> = {
-    blue: createPlaceholderTeamAi("blue", seed * 2 + 1),
-    red: createPlaceholderTeamAi("red", seed * 2 + 2),
+    blue: createPlaceholderTeamAi("blue", seed),
+    red: createPlaceholderTeamAi("red", seed),
   };
   const tracks: Replay["tracks"] = Object.fromEntries(lineup.map((l) => [l.id, { x: [], y: [] }]));
 
@@ -62,7 +62,7 @@ export function runMatch({ seed, durationSeconds = 30, lineup = DEFAULT_LINEUP }
 
   return {
     match: { seed, ticksPerSecond: TICKS_PER_SECOND, sampleEveryTicks: SAMPLE_EVERY_TICKS, durationTicks },
-    map: { width: MAP.width, height: MAP.height, laneY: MAP.laneY, bases: MAP.bases },
+    map: { width: MAP.width, height: MAP.height, laneY: MAP.laneY, bases: MAP.bases, baseRadius: MAP.baseRadius },
     units: lineup.map(({ id, team, hero, player }) => ({
       id,
       team,

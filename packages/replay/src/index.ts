@@ -25,6 +25,7 @@ export interface Replay {
     height: number;
     laneY: number;
     bases: Record<TeamId, ReplayPoint>;
+    baseRadius: number;
   };
   units: ReplayHero[];
   /** Per unit id: positions at every sample, starting at Tick 0. */
@@ -46,10 +47,9 @@ export interface Track {
 }
 
 /** The JSON inside the file. Track values are whole map units, delta-encoded. */
-interface ReplayFile extends Omit<Replay, "tracks"> {
+interface ReplayFile extends Replay {
   format: typeof REPLAY_FORMAT;
   version: number;
-  tracks: Record<string, Track>;
 }
 
 export async function encodeReplay(replay: Replay): Promise<Uint8Array> {

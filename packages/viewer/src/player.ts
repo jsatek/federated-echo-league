@@ -58,9 +58,8 @@ function drawLane({ map }: Replay): Graphics {
   const g = new Graphics();
   g.rect(0, map.laneY - LANE_WIDTH / 2, map.width, LANE_WIDTH).fill(0x3a3f35);
   g.moveTo(map.width / 2, map.laneY - LANE_WIDTH / 2).lineTo(map.width / 2, map.laneY + LANE_WIDTH / 2).stroke({ width: 6, color: 0x555b4f });
-  for (const team of ["blue", "red"] as const) {
-    const base = map.bases[team];
-    g.circle(base.x, base.y, 160).fill({ color: TEAM_COLOURS[team], alpha: 0.25 });
+  for (const [team, base] of Object.entries(map.bases) as [keyof typeof TEAM_COLOURS, { x: number; y: number }][]) {
+    g.circle(base.x, base.y, map.baseRadius).fill({ color: TEAM_COLOURS[team], alpha: 0.25 });
   }
   return g;
 }

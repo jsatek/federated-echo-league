@@ -10,7 +10,9 @@ const file = new URLSearchParams(location.search).get("replay") ?? "seed-1.repla
 
 try {
   const response = await fetch(file);
-  if (!response.ok) throw new Error(`Couldn't load ${file} (HTTP ${response.status}).`);
+  // Dev servers answer a missing file with the app's own web page instead of a 404.
+  const isWebPage = response.headers.get("content-type")?.includes("text/html") ?? false;
+  if (!response.ok || isWebPage) throw new Error("Couldn't find this Replay file.");
   const replay = await decodeReplay(new Uint8Array(await response.arrayBuffer()));
   await playReplay(replay, stage, (text) => (status.textContent = text));
 } catch (error) {

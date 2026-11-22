@@ -3,7 +3,7 @@ import { decodeReplay, encodeReplay, type Replay } from "./index.ts";
 
 const replay: Replay = {
   match: { seed: 7, ticksPerSecond: 20, sampleEveryTicks: 2, durationTicks: 4 },
-  map: { width: 3600, height: 500, laneY: 250, bases: { blue: { x: 60, y: 250 }, red: { x: 3540, y: 250 } } },
+  map: { width: 3600, height: 500, laneY: 250, bases: { blue: { x: 60, y: 250 }, red: { x: 3540, y: 250 } }, baseRadius: 160 },
   units: [
     { id: "blue-warden", team: "blue", hero: "warden", heroName: "Warden", player: "Kestrel", radius: 28 },
   ],

@@ -10,3 +10,7 @@
 - [ ] Match Events record casts, damage, deaths, gold, level-ups, Recalls and Tower kills
 - [ ] Tests cover Last Hit gold, Tower target switching, Recall interrupted by damage, and gold cashed in at base
 - [ ] Bases are about 5 s of walking from the middle of the Lane; the viewer shows the Lane section and marks Heroes who are off-screen
+
+## Comments
+
+From the ticket 02 review: Replay Tracks currently start at Tick 0 and run to the end of the Match, and `units` holds only Heroes. Minions spawn and die mid-Match, so this ticket needs to give each Track a start (and units a kind and lifetime). The format is still version 1 and nothing is published yet, so change it in place, or bump the version if ticket 03 has already published Replays. The sim's refused Intents are returned to the runner but not recorded yet; record them as Match Events once Events exist.

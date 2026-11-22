@@ -2,7 +2,7 @@
 
 import { createRng, LANE_MIDDLE, type Intent, type Point, type TeamAi, type TeamId } from "@fel/contract";
 
-/** How far back from the Lane middle each Hero stands, on its own side. */
+/** How far back from the Lane middle, toward its own base, each Hero stands. */
 const STAND_BACK = 150;
 /** How far the standing spot may wander from that, per Hero and Seed. */
 const WOBBLE = 60;
@@ -12,8 +12,8 @@ const WOBBLE = 60;
  * Lane middle and holds there. Replaced by Stance-based Role Brains in ticket 07.
  */
 export function createPlaceholderTeamAi(team: TeamId, seed: number): TeamAi {
-  const rng = createRng(seed);
-  const side = team === "blue" ? -1 : 1;
+  const rng = createRng(seed, `ai-${team}`);
+  const towardOwnBase = team === "blue" ? -1 : 1;
   const spots = new Map<string, Point>();
 
   return {
@@ -23,7 +23,7 @@ export function createPlaceholderTeamAi(team: TeamId, seed: number): TeamAi {
         let spot = spots.get(ally.id);
         if (!spot) {
           spot = {
-            x: LANE_MIDDLE.x + side * STAND_BACK + (rng.next() * 2 - 1) * WOBBLE,
+            x: LANE_MIDDLE.x + towardOwnBase * STAND_BACK + (rng.next() * 2 - 1) * WOBBLE,
             y: LANE_MIDDLE.y + (rng.next() * 2 - 1) * WOBBLE,
           };
           spots.set(ally.id, spot);

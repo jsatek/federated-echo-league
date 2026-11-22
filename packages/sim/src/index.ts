@@ -54,7 +54,7 @@ interface MutableHero {
 }
 
 export function createSim(setup: MatchSetup): Sim {
-  const rng = createRng(setup.seed);
+  const rng = createRng(setup.seed, "sim");
   const heroes: MutableHero[] = setup.heroes.map(({ id, team, hero }) => {
     // Appear at a random point inside the base circle.
     const angle = rng.next() * 2 * Math.PI;
@@ -83,7 +83,11 @@ export function createSim(setup: MatchSetup): Sim {
       const refused: RefusedIntent[] = [];
       for (const [heroId, intent] of Object.entries(intents)) {
         const hero = heroes.find((h) => h.id === heroId);
-        if (hero?.team !== team) {
+        if (!hero) {
+          refused.push({ heroId, reason: `${heroId} is not a Hero in this Match` });
+          continue;
+        }
+        if (hero.team !== team) {
           refused.push({ heroId, reason: `${heroId} is not on ${team}'s Team` });
           continue;
         }

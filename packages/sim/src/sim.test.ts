@@ -29,7 +29,7 @@ test("a Hero walks at its own speed and stops on its target", () => {
   expect(heroAt(sim, "blue-warden")).toMatchObject(target);
 });
 
-test("the sim refuses Intents for Heroes that are not on your Team", () => {
+test("the sim refuses Intents for Heroes that are not yours", () => {
   const sim = createSim(duel);
   const before = heroAt(sim, "red-lumen");
 
@@ -41,7 +41,7 @@ test("the sim refuses Intents for Heroes that are not on your Team", () => {
 
   expect(refused).toEqual([
     { heroId: "red-lumen", reason: "red-lumen is not on blue's Team" },
-    { heroId: "nobody", reason: "nobody is not on blue's Team" },
+    { heroId: "nobody", reason: "nobody is not a Hero in this Match" },
   ]);
   expect(heroAt(sim, "red-lumen")).toEqual(before);
 });
