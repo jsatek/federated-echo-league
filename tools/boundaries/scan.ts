@@ -17,12 +17,15 @@ export function scanWorkspace(root: string): WorkspacePackage[] {
   const dirs = readdirSync(packagesDir).filter((d) =>
     existsSync(join(packagesDir, d, "package.json")),
   );
-  const nameOfDir = new Map(dirs.map((d) => [d, readName(join(packagesDir, d))]));
+  const manifestOfDir = new Map(dirs.map((d) => [d, readManifest(join(packagesDir, d))]));
+  const nameOfDir = new Map(
+    [...manifestOfDir].map(([d, m]) => [d, shortName(m.name) ?? m.name]),
+  );
 
   return dirs.map((dir) => {
     const pkgDir = join(packagesDir, dir);
     const name = nameOfDir.get(dir)!;
-    const deps = new Set<string>(declaredDeps(pkgDir));
+    const deps = new Set<string>(declaredDeps(manifestOfDir.get(dir)!));
     for (const file of sourceFiles(pkgDir)) {
       for (const spec of specifiers(readFileSync(file, "utf8"))) {
         const target = spec.startsWith(".")
@@ -36,20 +39,18 @@ export function scanWorkspace(root: string): WorkspacePackage[] {
   });
 }
 
-function readName(pkgDir: string): string {
-  const { name } = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as {
-    name: string;
-  };
-  return shortName(name) ?? name;
+interface Manifest {
+  name: string;
+  [field: string]: unknown;
 }
 
-function declaredDeps(pkgDir: string): string[] {
-  const json = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as Record<
-    string,
-    Record<string, string> | undefined
-  >;
+function readManifest(pkgDir: string): Manifest {
+  return JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as Manifest;
+}
+
+function declaredDeps(manifest: Manifest): string[] {
   return ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
-    .flatMap((field) => Object.keys(json[field] ?? {}))
+    .flatMap((field) => Object.keys((manifest[field] as Record<string, string>) ?? {}))
     .map(shortName)
     .filter((n): n is string => n !== undefined);
 }

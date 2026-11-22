@@ -1,4 +1,4 @@
-// ADR-0006: viewer and site never reach sim, ai or contract;
+// ADR-0006: viewer and site may depend only on replay and league;
 // sim and ai meet only through contract, never each other.
 
 export interface WorkspacePackage {
@@ -15,20 +15,31 @@ export interface Violation {
   via: string[];
 }
 
+/** Packages that may reach only the listed packages, directly or indirectly. */
+const BROWSER_SAFE = ["replay", "league"];
+const ONLY_ALLOWED: Record<string, readonly string[]> = {
+  viewer: BROWSER_SAFE,
+  site: BROWSER_SAFE,
+};
+
+/** Packages that must never reach the listed packages, directly or indirectly. */
 const FORBIDDEN: Record<string, readonly string[]> = {
-  viewer: ["sim", "ai", "contract"],
-  site: ["sim", "ai", "contract"],
   sim: ["ai"],
   ai: ["sim"],
 };
+
+function isAllowed(from: string, to: string): boolean {
+  const only = ONLY_ALLOWED[from];
+  if (only !== undefined) return only.includes(to);
+  return !(FORBIDDEN[from] ?? []).includes(to);
+}
 
 export function findViolations(packages: WorkspacePackage[]): Violation[] {
   const depsOf = new Map(packages.map((p) => [p.name, p.dependsOn]));
   const violations: Violation[] = [];
   for (const pkg of packages) {
-    const forbidden = FORBIDDEN[pkg.name] ?? [];
     for (const [reached, chain] of shortestChains(pkg.name, depsOf)) {
-      if (forbidden.includes(reached)) {
+      if (!isAllowed(pkg.name, reached)) {
         violations.push({ from: pkg.name, to: reached, via: chain });
       }
     }

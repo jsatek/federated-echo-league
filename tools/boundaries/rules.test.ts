@@ -45,3 +45,12 @@ test("sim and ai may not depend on each other in either direction", () => {
     { from: "ai", to: "sim", via: ["ai", "sim"] },
   ]);
 });
+
+test("viewer and site may depend only on replay and league", () => {
+  expect(
+    findViolations([
+      { name: "site", dependsOn: [] },
+      { name: "viewer", dependsOn: ["site"] },
+    ]),
+  ).toEqual([{ from: "viewer", to: "site", via: ["viewer", "site"] }]);
+});
