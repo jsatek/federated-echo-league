@@ -10,7 +10,9 @@
     "build": "tsc --build",
     "typecheck": "tsc --build && tsc -p tools/tsconfig.json",
     "check:boundaries": "node tools/boundaries/cli.ts",
-    "test": "pnpm check:boundaries && vitest run"
+    "test": "pnpm check:boundaries && vitest run",
+    "match": "node packages/runner/src/cli.ts",
+    "viewer": "pnpm --filter @fel/viewer dev"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

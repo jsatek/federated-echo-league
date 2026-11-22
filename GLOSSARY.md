@@ -66,6 +66,10 @@ _Avoid_: Payload, modifier
 One step of Match time (1/20 of a second); the unit all durations are measured in.
 _Avoid_: Frame, turn
 
+**Track**:
+The recorded path of one unit through a Match: its position sampled 10 times a second, stored in the Replay.
+_Avoid_: Trail, path data
+
 **Match Event**:
 A timestamped thing that happened in a Match (a cast, a death, a Tower falling), recorded in the Replay and the basis of every stat.
 _Avoid_: Log entry, action
@@ -75,6 +79,10 @@ _Avoid_: Log entry, action
 **Intent**:
 What a Player's bot wants its Hero to do next (move, attack, cast, hold, recall); the sim decides what actually happens.
 _Avoid_: Command, action, input
+
+**Observation**:
+Everything the sim hands one Team's AI at a decision step: its own Heroes in full, plus whatever that Team's Vision shows.
+_Avoid_: World state, game state (both imply full information)
 
 **Team Brain**:
 The part of a Team's AI that chooses the Team's plan and hands each Player an Assignment.

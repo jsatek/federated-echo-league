@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Replay Viewer</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; padding: 16px; background: #0f1218; color: #e6e9ef; font: 15px/1.4 system-ui, sans-serif; }
+      main { max-width: 960px; margin: 0 auto; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      #status { margin: 0 0 12px; color: #9aa3b2; font-variant-numeric: tabular-nums; }
+      #stage { width: 100%; border-radius: 8px; overflow: hidden; background: #172019; }
+      #error { color: #ff8a8a; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Federated Echo League</h1>
+      <p id="status">Loading Replay…</p>
+      <div id="stage"></div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

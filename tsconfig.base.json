@@ -16,6 +16,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-    "types": []
+    "types": [],
+    "erasableSyntaxOnly": true
   }
 }

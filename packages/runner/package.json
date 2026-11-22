@@ -5,5 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fel/contract": "workspace:*",
+    "@fel/sim": "workspace:*",
+    "@fel/ai": "workspace:*",
+    "@fel/replay": "workspace:*"
   }
 }
