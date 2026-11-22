@@ -1,0 +1,1012 @@
+<title>Lane Duel Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an analyst's bench. The arena is on top with its controls, the two players sit side by side with their reasoning under them, then the event feed, then guided walkthroughs. */
+:root {
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #f5f6f9;
+  --ink: #141821;
+  --muted: #586174;
+  --line: #d5dae3;
+  --accent: #0d7469;
+  --accent-ink: #ffffff;
+  --blue: #2a64cc;
+  --red: #c93c33;
+  --brush: #3b8a45;
+  --warn: #a95207;
+  --field: #dfe4ec;
+  --fog: rgba(18, 22, 30, 0.58);
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1016; --surface: #151922; --surface-2: #1b2029; --ink: #e5e8ee; --muted: #959fb1; --line: #29303b;
+    --accent: #2bbfae; --accent-ink: #04201c; --blue: #6c9cff; --red: #ff7a6d; --brush: #52ad5e; --warn: #f0a43a;
+    --field: #11151c; --fog: rgba(0, 0, 0, 0.62); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1016; --surface: #151922; --surface-2: #1b2029; --ink: #e5e8ee; --muted: #959fb1; --line: #29303b;
+  --accent: #2bbfae; --accent-ink: #04201c; --blue: #6c9cff; --red: #ff7a6d; --brush: #52ad5e; --warn: #f0a43a;
+  --field: #11151c; --fog: rgba(0, 0, 0, 0.62); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: 2.4rem; }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0; }
+.num, table, .clock, .log { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.badge { display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; border: 1px dashed var(--warn); color: var(--warn); }
+header { display: grid; gap: 10px; }
+header .lede { font-size: 1.02rem; max-width: 68ch; }
+header details { max-width: 72ch; color: var(--muted); }
+header details summary { cursor: pointer; color: var(--ink); font-weight: 500; }
+header details ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.arena-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.clock { font-size: 1.1rem; font-weight: 600; }
+.canvas-box { width: 100%; overflow: hidden; border-radius: 8px; border: 1px solid var(--line); }
+canvas { display: block; width: 100%; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+.btn {
+  font: 500 0.86rem var(--font-body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:focus-visible, .seg button:focus-visible, .tabs button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 0.82rem var(--font-body); padding: 6px 10px; background: var(--surface-2); color: var(--ink); border: 0; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+label.inline { display: inline-flex; gap: 6px; align-items: center; font-size: 0.82rem; color: var(--muted); }
+input[type="number"], select { font: 0.85rem var(--font-data); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 5.5em; }
+select { width: auto; }
+.changed { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--surface-2); border-radius: 0 6px 6px 0; font-size: 0.88rem; }
+.changed.warn { border-left-color: var(--warn); }
+.changed strong { font-weight: 600; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 780px) { .duo { grid-template-columns: 1fr; } h1 { font-size: 2rem; } }
+.player { border-top: 4px solid var(--team); }
+.player.blue { --team: var(--blue); }
+.player.red { --team: var(--red); }
+.player-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.player-head h2 { color: var(--team); }
+.hp { display: grid; gap: 4px; }
+.bar { height: 10px; border-radius: 3px; background: var(--field); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--team); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 0.88rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.chip.hot { border-color: var(--warn); color: var(--warn); }
+details.ratings summary { cursor: pointer; font-weight: 500; font-size: 0.88rem; }
+.sliders { display: grid; gap: 8px; margin-top: 10px; }
+.slider { display: grid; grid-template-columns: 8.5em 1fr 2.2em; gap: 8px; align-items: center; font-size: 0.84rem; }
+.slider small { grid-column: 1 / -1; color: var(--muted); margin-top: -6px; font-size: 0.76rem; }
+.slider input { width: 100%; accent-color: var(--team); }
+.note { color: var(--muted); font-size: 0.8rem; }
+.brain-status { font-size: 0.88rem; }
+.memory { display: grid; gap: 3px; font-size: 0.86rem; }
+.table-box { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+th { text-align: left; font: 600 0.7rem var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.r, th.r { text-align: right; }
+td .why { display: block; font-family: var(--font-body); color: var(--muted); font-size: 0.76rem; }
+tr.chosen td { background: color-mix(in srgb, var(--team) 13%, transparent); }
+tr.chosen td:first-child { box-shadow: inset 3px 0 0 var(--team); font-weight: 600; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 0.78rem; max-height: 320px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 4.6em 4.4em 1fr; gap: 8px; padding: 3px 4px; border-radius: 4px; }
+.log li .t { color: var(--muted); }
+.log li .k { font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 1px; }
+.log li .m { font-family: var(--font-body); min-width: 0; }
+.log li.blue .m { color: var(--blue); }
+.log li.red .m { color: var(--red); }
+.log li.refused { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.log li.refused .k { color: var(--warn); }
+.log li.ai .k { color: var(--accent); }
+.log li.death .m { font-weight: 600; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: 500 0.86rem var(--font-body); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.scenario { display: grid; gap: 10px; max-width: 72ch; }
+.scenario .watch { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; counter-reset: step; }
+.steps li { display: flex; gap: 10px; align-items: center; counter-increment: step; }
+.steps li::before { content: counter(step); font: 600 0.78rem var(--font-data); width: 1.8em; height: 1.8em; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); color: var(--muted); flex: none; }
+.steps li.done::before { content: "✓"; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.steps li.next::before { border-color: var(--accent); color: var(--accent); }
+.questions { display: grid; gap: 6px; padding-left: 18px; margin: 0; max-width: 72ch; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow">Federated Echo League · AI interface</span><span class="badge">Prototype · throwaway</span></div>
+    <h1>Lane Duel Lab</h1>
+    <p class="lede">The question: can a sim that knows nothing about player skill, driven by bots that only see what their team sees and only send orders back, produce a 1v1 lane duel that looks like two humans of different skill, without either bot getting information it shouldn't have?</p>
+    <details>
+      <summary>What's real here and what's simplified</summary>
+      <ul>
+        <li><strong>Real (from the decisions so far):</strong> 20 ticks per second. Each bot gets only its team's Vision and returns Intents. Player Ratings live only inside the bot. The sim refuses illegal orders. Abilities are an Ability Type plus Effects. Bots decide 10 times a second.</li>
+        <li><strong>Simplified:</strong> one lane, no minions, towers can't be destroyed, both players use the same hero (a mirror match, so ratings are the only difference), and the Team Brain is skipped because the Assignment is fixed: "hold mid lane".</li>
+        <li><strong>The hero, Lumen:</strong> auto attack (range 430, 34 damage), <em>Spark Bolt</em> (Projectile: 95 damage + 35% slow for 1.5 s, 6 s cooldown, a 0.25 s wind-up you can see), <em>Skip</em> (Dash, 300 units, 10 s cooldown).</li>
+      </ul>
+    </details>
+  </header>
+
+  <section class="panel" aria-label="Arena">
+    <div class="arena-head">
+      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+        <h2>Mid lane</h2><span class="clock" id="clock">0.00 s</span><span class="note" id="tickNote"></span>
+      </div>
+      <div class="seg" role="group" aria-label="Whose view">
+        <button type="button" id="view-truth" aria-pressed="true">Everything</button>
+        <button type="button" id="view-blue" aria-pressed="false">Kestrel's eyes</button>
+        <button type="button" id="view-red" aria-pressed="false">Magpie's eyes</button>
+      </div>
+    </div>
+    <div class="canvas-box"><canvas id="arena" aria-label="Top-down view of the lane"></canvas></div>
+    <div class="controls" aria-label="Time controls">
+      <button class="btn primary" type="button" id="play">Play</button>
+      <button class="btn" type="button" id="tick1">+1 tick</button>
+      <button class="btn" type="button" id="tick10">+0.5 s</button>
+      <button class="btn" type="button" id="tick60">+3 s</button>
+      <label class="inline" for="speed">Speed <select id="speed"><option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+      <span class="sep"></span>
+      <label class="inline" for="seed">Seed <input type="number" id="seed" value="7" min="1" step="1"></label>
+      <button class="btn" type="button" id="reset">Reset free play</button>
+    </div>
+    <div class="controls" aria-label="Give an order">
+      <label class="inline" for="orderTeam">Order <select id="orderTeam"><option value="blue">Kestrel (Blue)</option><option value="red">Magpie (Red)</option></select></label>
+      <button class="btn" type="button" data-order="attack">Attack enemy</button>
+      <button class="btn" type="button" data-order="bolt">Spark Bolt at enemy</button>
+      <button class="btn" type="button" data-order="skip">Skip toward enemy</button>
+      <button class="btn" type="button" data-order="tower">Walk to own tower</button>
+      <button class="btn" type="button" data-order="recall">Recall</button>
+      <button class="btn" type="button" data-order="hold">Hold still</button>
+    </div>
+    <p class="note">Your orders go through the same door as the bot's, so the sim can refuse them too. The bot then waits 1.5 s before taking over again.</p>
+    <div class="changed" id="changed" aria-live="polite">Pick a walkthrough below, or press Play.</div>
+  </section>
+
+  <div class="duo" id="players"></div>
+
+  <section class="panel" aria-label="Event feed">
+    <div class="arena-head"><h2>What happened</h2><span class="note">Newest first. "Sim" lines are what the Replay would record. "Plan" lines are bot decisions, which a Replay would not store.</span></div>
+    <ul class="log" id="log"></ul>
+  </section>
+
+  <section class="panel" aria-label="Guided walkthroughs">
+    <h2>Walkthroughs</h2>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="scenario"></div>
+  </section>
+
+  <section class="panel" aria-label="What to judge">
+    <h2>What to judge</h2>
+    <ol class="questions">
+      <li>Do the duels look like two people playing? Does turning each rating up or down make a visible difference?</li>
+      <li>Is "acting on information that is a few ticks old" a believable way to model Reaction?</li>
+      <li>When a bot orders an attack on someone who just walked out of sight, the sim refuses. Is that right, or should the order become "walk to where I last saw them"?</li>
+      <li>Is the score table enough to understand why a bot did what it did?</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   PORTABLE LOGIC MODULE: no DOM in here. Three parts that mirror the
+   planned packages: contract (public constants), sim, ai. A small runner
+   joins them the way the real match loop will.
+   ===================================================================== */
+const LaneDuel = (() => {
+  'use strict';
+
+  // ---------- contract: public knowledge both sim and AI may use ----------
+  const TICKS_PER_SECOND = 20;
+  const DECISION_EVERY_TICKS = 2; // bots decide 10 times a second
+  const MAP = {
+    width: 1800, height: 500,
+    brush: [{ id: 'top-brush', x: 780, y: 0, w: 240, h: 150 }],
+    bases: { blue: { x: 50, y: 250 }, red: { x: 1750, y: 250 } },
+    towers: { blue: { x: 180, y: 250 }, red: { x: 1620, y: 250 } },
+  };
+  const TOWER = { range: 450, vision: 650, damage: 70, cooldown: 20 };
+  const HERO = { radius: 28, speed: 330, maxHp: 620, vision: 700, regenPerSec: 1.5, fountainHealPerSec: 150, fountainRadius: 160, respawnTicks: 120, recallTicks: 60 };
+  const KIT = {
+    attack: { name: 'Auto attack', range: 430, damage: 34, cooldown: 16 },
+    Q: { name: 'Spark Bolt', abilityType: 'Projectile', range: 800, speed: 1100, width: 24, windup: 5, cooldown: 120,
+         effects: [{ kind: 'Damage', amount: 95 }, { kind: 'Slow', amount: 0.35, duration: 30 }] },
+    E: { name: 'Skip', abilityType: 'Dash', distance: 300, ticks: 5, cooldown: 200, effects: [] },
+  };
+  const enemyOf = t => (t === 'blue' ? 'red' : 'blue');
+  const teamName = t => (t === 'blue' ? 'Blue' : 'Red');
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const secs = ticks => (ticks / TICKS_PER_SECOND).toFixed(1) + ' s';
+  function brushAt(x, y) {
+    for (const b of MAP.brush) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.id;
+    return null;
+  }
+  function clampToMap(p) {
+    return { x: clamp(p.x, HERO.radius, MAP.width - HERO.radius), y: clamp(p.y, HERO.radius, MAP.height - HERO.radius) };
+  }
+
+  // ---------- sim: rules only, never sees ratings ----------
+  function makeHero(team, name, pos) {
+    return { id: team, team, name, x: pos.x, y: pos.y, hp: HERO.maxHp, maxHp: HERO.maxHp, alive: true, respawnAt: null,
+             intent: { kind: 'hold' }, attackCd: 0, cd: { Q: 0, E: 0 }, casting: null, dash: null, recallUntil: null,
+             slowUntil: 0, slowAmount: 0 };
+  }
+  function createSim(setup) {
+    return {
+      tick: 0,
+      heroes: { blue: makeHero('blue', setup.names.blue, setup.positions.blue), red: makeHero('red', setup.names.red, setup.positions.red) },
+      projectiles: [], events: [], towerCd: { blue: 0, red: 0 }, nextId: 1,
+    };
+  }
+  function teamCanSee(sim, team, x, y) {
+    const b = brushAt(x, y);
+    for (const h of Object.values(sim.heroes)) {
+      if (h.team !== team || !h.alive) continue;
+      if (Math.hypot(h.x - x, h.y - y) <= HERO.vision && (!b || brushAt(h.x, h.y) === b)) return true;
+    }
+    const t = MAP.towers[team];
+    return !b && Math.hypot(t.x - x, t.y - y) <= TOWER.vision;
+  }
+  function heroVisibleTo(sim, team, h) { return h.team === team || (h.alive && teamCanSee(sim, team, h.x, h.y)); }
+  function log(sim, kind, team, text, extra = {}) {
+    sim.events.push({ tick: sim.tick, kind, team, text, ...extra });
+    if (sim.events.length > 900) sim.events.splice(0, sim.events.length - 900);
+  }
+
+  // The single door every order goes through, whether it comes from a bot or a person.
+  function setIntent(simIn, team, heroId, intent) {
+    const sim = structuredClone(simIn);
+    const h = sim.heroes[heroId];
+    const reject = reason => {
+      const last = sim.events[sim.events.length - 1];
+      if (!(last && last.kind === 'refused' && last.text === reason)) log(sim, 'refused', team, reason);
+      return { sim, accepted: false, reason };
+    };
+    if (!h || h.team !== team) return reject(`${teamName(team)} doesn't control ${heroId}`);
+    if (!h.alive) return reject(`${h.name} is dead (respawns in ${secs(h.respawnAt - sim.tick)}), so the order is ignored`);
+    if (intent.kind === 'attack') {
+      const t = sim.heroes[intent.targetId];
+      if (!t || !t.alive || !heroVisibleTo(sim, team, t)) return reject(`${h.name} can't attack ${t ? t.name : intent.targetId}: ${teamName(team)} can't see them`);
+    }
+    if (intent.kind === 'cast') {
+      const a = KIT[intent.ability];
+      if (!a || !['Q', 'E'].includes(intent.ability)) return reject(`Unknown ability ${intent.ability}`);
+      if (h.casting || h.dash) return reject(`${h.name} is already mid-cast, so ${a.name} is ignored`);
+      if (h.cd[intent.ability] > 0) return reject(`${a.name} is on cooldown (${secs(h.cd[intent.ability])} left)`);
+    }
+    if (h.recallUntil !== null && intent.kind !== 'recall') { h.recallUntil = null; log(sim, 'recall', team, `${h.name} cancels recall`); }
+    if (intent.kind === 'recall') {
+      if (h.recallUntil === null) { h.recallUntil = sim.tick + HERO.recallTicks; log(sim, 'recall', team, `${h.name} starts recalling (3 s)`); }
+      h.intent = { kind: 'recall' };
+      return { sim, accepted: true };
+    }
+    if (intent.kind === 'cast') {
+      const seenBy = { blue: heroVisibleTo(sim, 'blue', h), red: heroVisibleTo(sim, 'red', h) };
+      if (intent.ability === 'Q') {
+        h.casting = { ability: 'Q', fireAt: sim.tick + KIT.Q.windup, x: intent.x, y: intent.y };
+      } else {
+        const dx = intent.x - h.x, dy = intent.y - h.y, len = Math.hypot(dx, dy) || 1, go = Math.min(len, KIT.E.distance);
+        const to = clampToMap({ x: h.x + (dx / len) * go, y: h.y + (dy / len) * go });
+        h.dash = { tx: to.x, ty: to.y, ticksLeft: KIT.E.ticks };
+        h.cd.E = KIT.E.cooldown;
+      }
+      log(sim, 'cast', team, `${h.name} casts ${KIT[intent.ability].name}`, { ability: intent.ability, caster: h.id, seenBy });
+      h.intent = { kind: 'hold' };
+      return { sim, accepted: true };
+    }
+    h.intent = structuredClone(intent);
+    return { sim, accepted: true };
+  }
+
+  function damage(sim, target, amount, sourceTeam, what) {
+    if (!target.alive) return;
+    target.hp = Math.max(0, target.hp - amount);
+    if (target.recallUntil !== null) { target.recallUntil = null; log(sim, 'recall', target.team, `${target.name}'s recall is interrupted by damage`); }
+    if (target.hp <= 0) {
+      target.alive = false; target.respawnAt = sim.tick + HERO.respawnTicks;
+      target.casting = null; target.dash = null; target.intent = { kind: 'hold' };
+      log(sim, 'death', sourceTeam, `${target.name} is slain by ${what}`);
+    }
+  }
+  function applyEffects(sim, target, effects, sourceTeam, what) {
+    for (const e of effects) {
+      if (e.kind === 'Damage') damage(sim, target, e.amount, sourceTeam, what);
+      else if (e.kind === 'Slow' && target.alive) { target.slowUntil = Math.max(target.slowUntil, sim.tick + e.duration); target.slowAmount = e.amount; }
+    }
+  }
+  function moveToward(h, x, y, perTick) {
+    const dx = x - h.x, dy = y - h.y, len = Math.hypot(dx, dy);
+    if (len <= perTick) { h.x = x; h.y = y; return true; }
+    h.x += (dx / len) * perTick; h.y += (dy / len) * perTick;
+    const c = clampToMap(h); h.x = c.x; h.y = c.y;
+    return false;
+  }
+  function baseSpot(team) { const b = MAP.bases[team]; return { x: b.x + (team === 'blue' ? 40 : -40), y: b.y }; }
+
+  function step(simIn) {
+    const sim = structuredClone(simIn);
+    sim.tick += 1;
+    const t = sim.tick;
+    for (const h of Object.values(sim.heroes)) {
+      if (!h.alive) {
+        if (t >= h.respawnAt) {
+          Object.assign(h, baseSpot(h.team), { alive: true, hp: h.maxHp, respawnAt: null, slowUntil: 0, intent: { kind: 'hold' } });
+          log(sim, 'respawn', h.team, `${h.name} respawns at base`);
+        }
+        continue;
+      }
+      h.attackCd = Math.max(0, h.attackCd - 1); h.cd.Q = Math.max(0, h.cd.Q - 1); h.cd.E = Math.max(0, h.cd.E - 1);
+      if (h.recallUntil !== null && t >= h.recallUntil) {
+        Object.assign(h, baseSpot(h.team)); h.recallUntil = null; h.intent = { kind: 'hold' };
+        log(sim, 'recall', h.team, `${h.name} recalls to base`);
+        continue;
+      }
+      if (h.casting) {
+        if (t >= h.casting.fireAt) {
+          const dx = h.casting.x - h.x, dy = h.casting.y - h.y, len = Math.hypot(dx, dy);
+          const ux = len ? dx / len : (h.team === 'blue' ? 1 : -1), uy = len ? dy / len : 0;
+          sim.projectiles.push({ id: sim.nextId++, team: h.team, owner: h.id, ability: 'Q', x: h.x, y: h.y, vx: ux * KIT.Q.speed, vy: uy * KIT.Q.speed, travelled: 0 });
+          h.cd.Q = KIT.Q.cooldown; h.casting = null;
+        }
+        continue;
+      }
+      if (h.dash) {
+        h.x += (h.dash.tx - h.x) / h.dash.ticksLeft; h.y += (h.dash.ty - h.y) / h.dash.ticksLeft;
+        h.dash.ticksLeft -= 1; if (h.dash.ticksLeft <= 0) h.dash = null;
+        continue;
+      }
+      if (h.recallUntil !== null) continue;
+      const perTick = (HERO.speed * (t < h.slowUntil ? 1 - h.slowAmount : 1)) / TICKS_PER_SECOND;
+      const it = h.intent;
+      if (it.kind === 'move') {
+        if (moveToward(h, it.x, it.y, perTick)) h.intent = { kind: 'hold' };
+      } else if (it.kind === 'attack') {
+        const target = sim.heroes[it.targetId];
+        if (!target.alive) h.intent = { kind: 'hold' };
+        else if (!heroVisibleTo(sim, h.team, target)) { h.intent = { kind: 'hold' }; log(sim, 'lost', h.team, `${h.name} loses sight of ${target.name} and stops`); }
+        else if (dist(h, target) <= KIT.attack.range) {
+          if (h.attackCd === 0) {
+            h.attackCd = KIT.attack.cooldown;
+            log(sim, 'hit', h.team, `${h.name} auto-attacks ${target.name} (−${KIT.attack.damage})`);
+            damage(sim, target, KIT.attack.damage, h.team, `${h.name}'s auto attack`);
+          }
+        } else moveToward(h, target.x, target.y, perTick);
+      }
+    }
+    // projectiles: two sub-steps per tick so a fast bolt can't skip over a hero
+    const keep = [];
+    for (const p of sim.projectiles) {
+      let hit = null;
+      for (let s = 0; s < 2 && !hit && p.travelled < KIT.Q.range; s++) {
+        p.x += p.vx / TICKS_PER_SECOND / 2; p.y += p.vy / TICKS_PER_SECOND / 2; p.travelled += KIT.Q.speed / TICKS_PER_SECOND / 2;
+        for (const h of Object.values(sim.heroes)) if (h.team !== p.team && h.alive && Math.hypot(h.x - p.x, h.y - p.y) <= HERO.radius + KIT.Q.width) hit = h;
+      }
+      const owner = sim.heroes[p.owner];
+      const out = p.x < 0 || p.y < 0 || p.x > MAP.width || p.y > MAP.height;
+      if (hit) {
+        log(sim, 'hit', p.team, `${owner.name}'s Spark Bolt hits ${hit.name} (−${KIT.Q.effects[0].amount}, slowed)`);
+        applyEffects(sim, hit, KIT.Q.effects, p.team, `${owner.name}'s Spark Bolt`);
+      } else if (p.travelled >= KIT.Q.range || out) log(sim, 'miss', p.team, `${owner.name}'s Spark Bolt misses`);
+      else keep.push(p);
+    }
+    sim.projectiles = keep;
+    for (const team of ['blue', 'red']) {
+      sim.towerCd[team] = Math.max(0, sim.towerCd[team] - 1);
+      if (sim.towerCd[team] > 0) continue;
+      const tw = MAP.towers[team];
+      const target = Object.values(sim.heroes).find(h => h.team !== team && h.alive && dist(h, tw) <= TOWER.range && !brushAt(h.x, h.y));
+      if (target) {
+        sim.towerCd[team] = TOWER.cooldown;
+        log(sim, 'tower', team, `${teamName(team)} tower shoots ${target.name} (−${TOWER.damage})`);
+        damage(sim, target, TOWER.damage, team, `the ${teamName(team)} tower`);
+      }
+    }
+    for (const h of Object.values(sim.heroes)) {
+      if (!h.alive) continue;
+      const atBase = dist(h, MAP.bases[h.team]) <= HERO.fountainRadius;
+      h.hp = Math.min(h.maxHp, h.hp + (atBase ? HERO.fountainHealPerSec : HERO.regenPerSec) / TICKS_PER_SECOND);
+    }
+    return sim;
+  }
+
+  // What one team is allowed to know right now. This is the whole AI input.
+  function observe(sim, team, sinceTick) {
+    const allies = [], enemies = [], scoreboard = [];
+    for (const h of Object.values(sim.heroes)) {
+      if (h.team === team) {
+        allies.push({ id: h.id, name: h.name, x: h.x, y: h.y, hp: h.hp, maxHp: h.maxHp, alive: h.alive,
+          respawnInTicks: h.alive ? 0 : h.respawnAt - sim.tick,
+          cooldowns: { attack: h.attackCd, Q: h.casting ? h.casting.fireAt - sim.tick + KIT.Q.cooldown : h.cd.Q, E: h.cd.E },
+          casting: !!h.casting, dashing: !!h.dash, recalling: h.recallUntil !== null, slowed: sim.tick < h.slowUntil, inBrush: brushAt(h.x, h.y) });
+      } else {
+        scoreboard.push({ id: h.id, name: h.name, alive: h.alive, respawnInTicks: h.alive ? 0 : h.respawnAt - sim.tick });
+        if (heroVisibleTo(sim, team, h)) enemies.push({ id: h.id, name: h.name, x: h.x, y: h.y, hp: h.hp, maxHp: h.maxHp, slowed: sim.tick < h.slowUntil, windingUp: h.casting ? h.casting.ability : null });
+      }
+    }
+    const enemyProjectiles = sim.projectiles.filter(p => p.team !== team && teamCanSee(sim, team, p.x, p.y))
+      .map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, width: KIT.Q.width, ability: p.ability }));
+    const castsSeen = sim.events.filter(e => e.kind === 'cast' && e.team !== team && e.tick >= sinceTick && e.tick < sim.tick && e.seenBy[team])
+      .map(e => ({ heroId: e.caster, ability: e.ability, tick: e.tick }));
+    return { tick: sim.tick, team, allies, enemies, scoreboard, enemyProjectiles, castsSeen };
+  }
+
+  // ---------- ai: sees only observations; ratings live here ----------
+  const AI = (() => {
+    const LABELS = { dodge: 'Dodge', poke: 'Poke with Spark Bolt', trade: 'Trade auto attacks', allin: 'All-in', hold: 'Hold lane spacing',
+      checkBrush: 'Check the brush', retreat: 'Back off to tower', recall: 'Recall to base', heal: 'Heal at base' };
+    const r01 = v => (v - 1) / 19;
+    function rand(b) {
+      b.rng = (b.rng + 0x6d2b79f5) >>> 0;
+      let t = b.rng;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    function gauss(b) { const u = Math.max(rand(b), 1e-9), v = rand(b); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+    const reactionDelayTicks = r => Math.round(12 - 10 * r01(r)); // 0.6 s at 1, 0.1 s at 20
+    function createBrain(team, ratings, seed) {
+      return { team, ratings: { ...ratings }, rng: seed >>> 0, buffer: [], lastPerceivedTick: -1,
+               memory: { enemies: {}, projectiles: [], perceivedAt: -1 }, current: null, pausedUntil: -1, drift: 0 };
+    }
+    function pause(bIn, until) { const b = structuredClone(bIn); b.pausedUntil = until; return b; }
+    function setRating(bIn, key, value) { const b = structuredClone(bIn); b.ratings[key] = value; return b; }
+    function remember(b, o) {
+      const mem = b.memory;
+      for (const s of o.scoreboard) {
+        const m = (mem.enemies[s.id] ||= { id: s.id, name: s.name, qReadyAt: null, eReadyAt: null, qSeenAt: null, seenTick: null, visible: false, vx: 0, vy: 0 });
+        m.alive = s.alive; m.respawnAt = s.alive ? null : o.tick + s.respawnInTicks;
+        if (!s.alive) m.visible = false;
+      }
+      const seen = new Set();
+      for (const e of o.enemies) {
+        const m = mem.enemies[e.id]; seen.add(e.id);
+        if (m.visible && m.seenTick !== null && o.tick > m.seenTick) { const dt = (o.tick - m.seenTick) / TICKS_PER_SECOND; m.vx = (e.x - m.x) / dt; m.vy = (e.y - m.y) / dt; }
+        else { m.vx = 0; m.vy = 0; }
+        Object.assign(m, { x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, slowed: e.slowed, windingUp: e.windingUp, seenTick: o.tick, visible: true });
+      }
+      for (const m of Object.values(mem.enemies)) if (!seen.has(m.id)) { m.visible = false; m.windingUp = null; }
+      for (const c of o.castsSeen) {
+        const m = mem.enemies[c.heroId]; if (!m) continue;
+        if (c.ability === 'Q') { m.qReadyAt = c.tick + KIT.Q.windup + KIT.Q.cooldown; m.qSeenAt = c.tick; }
+        if (c.ability === 'E') m.eReadyAt = c.tick + KIT.E.cooldown;
+      }
+      mem.projectiles = o.enemyProjectiles; mem.perceivedAt = o.tick;
+    }
+    function nearBrush(p) {
+      return MAP.brush.some(r => Math.hypot(p.x - clamp(p.x, r.x, r.x + r.w), p.y - clamp(p.y, r.y, r.y + r.h)) < 120);
+    }
+
+    function decide(bIn, obs) {
+      const b = structuredClone(bIn);
+      b.buffer.push(obs); if (b.buffer.length > 12) b.buffer.shift();
+      const delay = reactionDelayTicks(b.ratings.reaction);
+      let perceived = b.buffer[0];
+      for (const o of b.buffer) if (o.tick <= obs.tick - delay) perceived = o;
+      for (const o of b.buffer) if (o.tick > b.lastPerceivedTick && o.tick <= perceived.tick) remember(b, o);
+      b.lastPerceivedTick = Math.max(b.lastPerceivedTick, perceived.tick);
+      const self = obs.allies[0]; // own body: known instantly
+      const head = { tick: obs.tick, perceivedTick: b.lastPerceivedTick, delayTicks: delay, options: [], chosen: null, chosenLabel: '', status: null };
+      if (!self.alive) { b.current = null; return { brain: b, intents: {}, reasoning: { ...head, status: `Dead, respawning in ${secs(self.respawnInTicks)}` } }; }
+      if (obs.tick < b.pausedUntil) return { brain: b, intents: {}, reasoning: { ...head, status: `Following your order for ${secs(b.pausedUntil - obs.tick)} more` } };
+      if (self.casting || self.dashing) return { brain: b, intents: {}, reasoning: null };
+
+      const R = b.ratings, A = R.aggression / 20, P = r01(R.positioning), M = r01(R.mechanics), D = r01(R.decisionMaking);
+      const dir = b.team === 'blue' ? 1 : -1;
+      const ownTower = MAP.towers[b.team], enemyTower = MAP.towers[enemyOf(b.team)];
+      const e = Object.values(b.memory.enemies)[0];
+      const known = !!(e && e.seenTick !== null);
+      const enemyAlive = !e || e.alive !== false;
+      const visible = !!(known && e.visible && enemyAlive);
+      const age = known ? obs.tick - e.seenTick : Infinity;
+      const hpR = self.hp / self.maxHp, ehpR = known ? e.hp / e.maxHp : 1;
+      const d = known ? Math.hypot(self.x - e.x, self.y - e.y) : Infinity;
+      const enemyQReady = !e || e.qReadyAt === null || obs.tick >= e.qReadyAt;
+      const qReady = self.cooldowns.Q === 0, eReady = self.cooldowns.E === 0;
+      const enemyUnderTower = known && dist(e, enemyTower) < TOWER.range;
+      const meNearEnemyTower = dist(self, enemyTower) < TOWER.range + 40;
+      const lag = (obs.tick - b.memory.perceivedAt) / TICKS_PER_SECOND;
+      const opts = [];
+      const add = (id, score, note, intent) => opts.push({ id, label: LABELS[id], score, note, intent });
+
+      // Dodge: a bolt the brain has perceived, extrapolated to now, or a visible wind-up aimed this way
+      let threat = null;
+      for (const p of b.memory.projectiles) {
+        const sp = Math.hypot(p.vx, p.vy), ux = p.vx / sp, uy = p.vy / sp;
+        const ox = p.x + p.vx * lag, oy = p.y + p.vy * lag;
+        const wx = self.x - ox, wy = self.y - oy, along = wx * ux + wy * uy;
+        if (along < -HERO.radius || along / sp > 0.8) continue;
+        if (Math.abs(wx * uy - wy * ux) < HERO.radius + p.width + 14) { threat = { ox, oy, ux, uy, windup: false }; break; }
+      }
+      if (!threat && visible && e.windingUp === 'Q' && d < KIT.Q.range) threat = { ox: e.x, oy: e.y, ux: (self.x - e.x) / d, uy: (self.y - e.y) / d, windup: true };
+      if (threat) {
+        add('dodge', threat.windup ? 0.85 : 1.25, threat.windup ? `${e.name} is winding up Spark Bolt at me` : 'A Spark Bolt is coming at me', () => {
+          let best = null;
+          for (const sgn of [1, -1]) {
+            const pt = clampToMap({ x: self.x - threat.uy * 170 * sgn, y: self.y + threat.ux * 170 * sgn });
+            const off = Math.abs((pt.x - threat.ox) * threat.uy - (pt.y - threat.oy) * threat.ux);
+            if (!best || off > best.off) best = { ...pt, off };
+          }
+          return { kind: 'move', x: best.x, y: best.y };
+        });
+      }
+      if (qReady && visible && d <= KIT.Q.range * 0.95) {
+        add('poke', 0.42 + 0.35 * A + (enemyQReady ? 0 : 0.15) + (e.slowed ? 0.08 : 0), enemyQReady ? 'In Spark Bolt range' : 'In range, and their bolt is down', () => {
+          const travel = d / KIT.Q.speed + KIT.Q.windup / TICKS_PER_SECOND + lag;
+          const ax = e.x + e.vx * travel * M, ay = e.y + e.vy * travel * M; // skilled players lead the target
+          const ang = gauss(b) * (0.24 - 0.22 * M), c = Math.cos(ang), s = Math.sin(ang);
+          const dx = ax - self.x, dy = ay - self.y;
+          return { kind: 'cast', ability: 'Q', x: self.x + dx * c - dy * s, y: self.y + dx * s + dy * c };
+        });
+      }
+      if (visible) {
+        const s = 0.30 + 0.30 * A + 0.5 * (hpR - ehpR) + (enemyQReady ? -0.12 : 0.18) - (enemyUnderTower ? 0.55 : 0);
+        const why = [enemyQReady ? 'their bolt may be ready' : 'their bolt is down', enemyUnderTower ? 'they are under their tower' : null, hpR > ehpR + 0.1 ? 'I have more health' : hpR < ehpR - 0.1 ? 'I have less health' : null].filter(Boolean).join(', ');
+        add('trade', s, why, () => ({ kind: 'attack', targetId: e.id }));
+      }
+      if (visible && ehpR < 0.4) {
+        add('allin', 0.2 + (hpR - ehpR) + 0.35 * A - (enemyUnderTower ? 0.7 * (1 - 0.6 * A) : 0), `${e.name} is low${enemyUnderTower ? ', but under their tower' : ''}`,
+          () => (d > KIT.attack.range + 20 && eReady ? { kind: 'cast', ability: 'E', x: e.x, y: e.y } : { kind: 'attack', targetId: e.id }));
+      }
+      add('hold', 0.42, known && age < 60 && enemyAlive ? (enemyQReady ? 'Stay out of their bolt range' : 'Bolt down: stand closer') : 'Hold my side of the lane', () => {
+        b.drift = b.drift * 0.97 + gauss(b) * 0.06;
+        let x;
+        const y = MAP.height / 2 + 40 * Math.sin(obs.tick / 37);
+        if (known && age < 60 && enemyAlive) x = e.x - dir * ((enemyQReady ? 560 : 400) - (1 - P) * 170 + b.drift * (1 - P) * 300);
+        else x = MAP.width / 2 - dir * 220;
+        if (P > 0.5) { const limit = enemyTower.x - dir * (TOWER.range + 40); x = dir > 0 ? Math.min(x, limit) : Math.max(x, limit); }
+        return { kind: 'move', ...clampToMap({ x, y }) };
+      });
+      if (!visible && enemyAlive && known && age < 100 && nearBrush(e)) {
+        add('checkBrush', 0.32 + 0.35 * A - 0.4 * P, `Lost ${e.name} near the brush ${secs(age)} ago`, () => ({ kind: 'move', x: e.x, y: e.y }));
+      }
+      add('retreat', 1.15 * (1 - hpR) - 0.25 * A - 0.15 + (visible && d < 600 && ehpR > hpR ? 0.15 : 0) + (meNearEnemyTower ? 0.3 : 0),
+        meNearEnemyTower ? 'I am in their tower range' : hpR < 0.5 ? 'Health is low' : 'Health is fine', () =>
+          (visible && d < 350 && eReady && hpR < 0.35 ? { kind: 'cast', ability: 'E', x: self.x - dir * 300, y: self.y } : { kind: 'move', x: ownTower.x - dir * 40, y: ownTower.y }));
+      if (hpR < 0.5) {
+        const danger = enemyAlive && known && d < 1000 && (visible || age < 40);
+        add('recall', danger ? 0 : 0.35 + 2 * (0.5 - hpR) + (dist(self, ownTower) < 350 ? 0.15 : 0), danger ? `Not safe: ${e.name} is close` : 'Low health and nobody near',
+          () => ({ kind: 'recall' }));
+      }
+      if (dist(self, MAP.bases[b.team]) < HERO.fountainRadius && hpR < 0.95) add('heal', 1.1, 'Topping up at base', () => ({ kind: 'hold' }));
+
+      const sigma = 0.3 - 0.28 * D;
+      for (const o of opts) { o.bonus = o.id === b.current ? 0.08 : 0; o.noise = gauss(b) * sigma; o.total = o.score + o.bonus + o.noise; }
+      opts.sort((x, y) => y.total - x.total);
+      const pick = opts[0];
+      b.current = pick.id;
+      const intent = pick.intent();
+      return { brain: b, intents: { [self.id]: intent },
+        reasoning: { ...head, options: opts.map(({ intent: _, ...rest }) => rest), chosen: pick.id, chosenLabel: pick.label, sigma } };
+    }
+    return { createBrain, decide, pause, setRating, LABELS };
+  })();
+
+  // ---------- runner: the match loop joining sim and AI ----------
+  function createMatch(setup) {
+    return {
+      setup: structuredClone(setup),
+      sim: createSim(setup),
+      brains: { blue: AI.createBrain('blue', setup.ratings.blue, setup.seed * 2 + 1), red: AI.createBrain('red', setup.ratings.red, setup.seed * 2 + 2) },
+      reasoning: { blue: null, red: null },
+      aiLog: [],
+    };
+  }
+  function advance(mIn) {
+    const m = { ...mIn, brains: { ...mIn.brains }, reasoning: { ...mIn.reasoning }, aiLog: mIn.aiLog.slice(-200) };
+    if (m.sim.tick % DECISION_EVERY_TICKS === 0) {
+      for (const team of ['blue', 'red']) {
+        const obs = observe(m.sim, team, m.sim.tick - DECISION_EVERY_TICKS);
+        const out = AI.decide(m.brains[team], obs);
+        m.brains[team] = out.brain;
+        if (out.reasoning) {
+          const prev = m.reasoning[team] && m.reasoning[team].chosen;
+          m.reasoning[team] = out.reasoning;
+          if (out.reasoning.chosen && out.reasoning.chosen !== prev) m.aiLog.push({ tick: m.sim.tick, team, kind: 'ai', text: `${m.sim.heroes[team].name} switches plan: ${out.reasoning.chosenLabel}` });
+        }
+        for (const [heroId, intent] of Object.entries(out.intents)) m.sim = setIntent(m.sim, team, heroId, intent).sim;
+      }
+    }
+    m.sim = step(m.sim);
+    return m;
+  }
+  function giveOrder(mIn, team, intent, pauseTicks = 30) {
+    const r = setIntent(mIn.sim, team, team, intent);
+    const brains = r.accepted ? { ...mIn.brains, [team]: AI.pause(mIn.brains[team], mIn.sim.tick + pauseTicks) } : mIn.brains;
+    return { match: { ...mIn, sim: r.sim, brains }, accepted: r.accepted, reason: r.reason };
+  }
+  function setRating(mIn, team, key, value) {
+    return { ...mIn, brains: { ...mIn.brains, [team]: AI.setRating(mIn.brains[team], key, value) } };
+  }
+
+  return { TICKS_PER_SECOND, DECISION_EVERY_TICKS, MAP, KIT, HERO, TOWER, createMatch, advance, giveOrder, setRating, observe,
+           visibleTo: teamCanSee, heroVisibleTo, brushAt, enemyOf, LABELS: AI.LABELS };
+})();
+</script>
+
+<script>
+/* =====================================================================
+   THROWAWAY PAGE SHELL: renders the module and wires buttons.
+   ===================================================================== */
+(() => {
+  const $ = s => document.querySelector(s);
+  const { MAP, KIT, HERO, TOWER, TICKS_PER_SECOND: TPS } = LaneDuel;
+  const NAMES = { blue: 'Kestrel', red: 'Magpie' };
+  const RATINGS = [
+    ['mechanics', 'Mechanics', 'Skillshot aim: leading the target and aim wobble'],
+    ['reaction', 'Reaction', 'How old the information it acts on is'],
+    ['positioning', 'Positioning', 'Spacing, respecting towers, not face-checking brush'],
+    ['decisionMaking', 'Decision-making', 'How much noise goes into choosing a plan'],
+    ['aggression', 'Aggression', 'Personality: how eagerly it trades and chases'],
+  ];
+  const rt = (mechanics, reaction, positioning, decisionMaking, aggression) => ({ mechanics, reaction, positioning, decisionMaking, aggression });
+  const pos = (bx, by, rx, ry) => ({ blue: { x: bx, y: by }, red: { x: rx, y: ry } });
+  const fmt = tick => (tick / TPS).toFixed(2) + ' s';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const SCENARIOS = [
+    { title: 'Even duel', setup: { seed: 7, positions: pos(680, 250, 1120, 250), ratings: { blue: rt(12, 12, 12, 12, 10), red: rt(12, 12, 12, 12, 10) } },
+      about: 'Two mid-table players with identical ratings on the same hero. The only differences come from the random noise in their decisions.',
+      watch: 'They should hover at the edge of range, throw Spark Bolts, and step in to trade right after the other side\'s bolt is spent. Read each brain panel: every move has a score.',
+      steps: [['Watch 2 seconds', ['advance', 40]], ['Watch 2 more seconds', ['advance', 40]], ['Watch 6 seconds', ['advance', 120]], ['See it through Kestrel\'s eyes', ['view', 'blue']]] },
+    { title: 'Fast hands vs slow hands', setup: { seed: 11, positions: pos(650, 250, 1150, 250), ratings: { blue: rt(18, 20, 14, 14, 12), red: rt(6, 3, 10, 10, 12) } },
+      about: 'Kestrel has elite Reaction and Mechanics. Magpie has poor ones. Everything else is close.',
+      watch: 'Kestrel acts on information 0.1 s old, Magpie on information 0.55 s old. Look for Kestrel picking "Dodge" while Magpie eats bolts, and for Kestrel\'s bolts landing because it aims where Magpie is heading.',
+      steps: [['Watch 1 second', ['advance', 20]], ['Watch 1 second', ['advance', 20]], ['Watch 1 second', ['advance', 20]], ['Watch 5 seconds', ['advance', 100]]] },
+    { title: 'Hiding in the brush', setup: { seed: 3, positions: pos(650, 300, 1150, 250), ratings: { blue: rt(12, 10, 3, 12, 14), red: rt(12, 12, 12, 12, 17) } },
+      about: 'Magpie walks into the brush. Kestrel has poor Positioning, so it tends to walk in after them.',
+      watch: 'In Kestrel\'s eyes, Magpie vanishes and a dashed "last seen" ring is all that\'s left. Ordering Kestrel to attack Magpie is refused, because Blue can\'t see the target. Check the feed: Kestrel\'s own bot makes the same mistake a moment earlier, acting on old information.',
+      steps: [['Order Magpie into the brush', ['order', 'red', 'brush']], ['Watch 1 second', ['advance', 20]], ['See it through Kestrel\'s eyes', ['view', 'blue']], ['Order Kestrel: attack Magpie', ['order', 'blue', 'attack']], ['Watch 2 seconds', ['advance', 40]], ['Show everything', ['view', 'truth']]] },
+    { title: 'Counting cooldowns', setup: { seed: 5, positions: pos(680, 250, 1120, 250), ratings: { blue: rt(13, 13, 13, 13, 11), red: rt(13, 13, 13, 13, 11) } },
+      about: 'Nobody tells a bot the enemy\'s cooldowns. It has to see the cast and count.',
+      watch: 'After Magpie wastes Spark Bolt, read Kestrel\'s brain panel. It notes the bolt is down for about 6 s, and its "Trade auto attacks" score jumps.',
+      steps: [['Order Magpie: throw Spark Bolt at nothing', ['order', 'red', 'boltAway']], ['Watch 0.5 seconds', ['advance', 10]], ['Watch 3 seconds', ['advance', 60]]] },
+    { title: 'Orders the sim refuses', setup: { seed: 9, positions: pos(500, 250, 1700, 250), ratings: { blue: rt(12, 12, 12, 12, 10), red: rt(12, 12, 12, 12, 10) } },
+      about: 'Magpie starts by their base, far outside anything Blue can see. Orders go through the same door whether a bot or you send them.',
+      watch: 'A blind Spark Bolt at a spot on the ground is allowed. Casting it again while it is spent is refused. Attacking a hero you can\'t see is refused.',
+      steps: [['Order Kestrel: Spark Bolt toward Magpie', ['order', 'blue', 'bolt']], ['Watch 0.5 seconds', ['advance', 10]], ['Order Kestrel: Spark Bolt again', ['order', 'blue', 'bolt']], ['Order Kestrel: attack Magpie', ['order', 'blue', 'attack']], ['Watch 2 seconds', ['advance', 40]]] },
+  ];
+
+  let freeRatings = { blue: rt(12, 12, 12, 12, 10), red: rt(12, 12, 12, 12, 10) };
+  let match, view = 'truth', playing = null, acc = 0;
+  const wt = { tab: 0, next: -1 }; // next = -1: walkthrough not started
+  let banner = { text: 'Pick a walkthrough below, or press Play.', warn: false };
+
+  function reset(setup) {
+    stop();
+    match = LaneDuel.createMatch({ names: NAMES, ...structuredClone(setup) });
+    buildPlayers();
+    render();
+  }
+  const freeSetup = () => ({ seed: Math.max(1, Math.floor(Number($('#seed').value) || 1)), positions: pos(680, 250, 1120, 250), ratings: structuredClone(freeRatings) });
+
+  function snap() {
+    const h = match.sim.heroes;
+    const one = t => ({ hp: Math.round(h[t].hp), alive: h[t].alive, plan: match.reasoning[t] && match.reasoning[t].chosenLabel });
+    return { tick: match.sim.tick, blue: one('blue'), red: one('red') };
+  }
+  function diff(a, b) {
+    const out = [];
+    if (a.tick !== b.tick) out.push(`clock ${fmt(a.tick)} → ${fmt(b.tick)}`);
+    for (const t of ['blue', 'red']) {
+      if (a[t].alive && !b[t].alive) out.push(`${NAMES[t]} died`);
+      else if (!a[t].alive && b[t].alive) out.push(`${NAMES[t]} respawned`);
+      else if (a[t].hp !== b[t].hp) out.push(`${NAMES[t]} HP ${a[t].hp} → ${b[t].hp}`);
+      if (a[t].plan !== b[t].plan && b[t].plan) out.push(`${NAMES[t]}'s plan: ${b[t].plan}`);
+    }
+    return out.join(' · ');
+  }
+  function advanceBy(ticks, label) {
+    const before = snap();
+    for (let i = 0; i < ticks; i++) match = LaneDuel.advance(match);
+    banner = { text: `<strong>${esc(label)}.</strong> ${esc(diff(before, snap()) || 'Nothing changed.')}`, warn: false };
+    render();
+  }
+  function orderIntent(team, kind) {
+    const me = match.sim.heroes[team], foe = match.sim.heroes[LaneDuel.enemyOf(team)], tw = MAP.towers[team];
+    switch (kind) {
+      case 'attack': return { kind: 'attack', targetId: foe.id };
+      case 'bolt': return { kind: 'cast', ability: 'Q', x: foe.x, y: foe.y };
+      case 'skip': return { kind: 'cast', ability: 'E', x: foe.x, y: foe.y };
+      case 'tower': return { kind: 'move', x: tw.x + (team === 'blue' ? 40 : -40), y: tw.y };
+      case 'recall': return { kind: 'recall' };
+      case 'brush': return { kind: 'move', x: 900, y: 70 };
+      case 'boltAway': return { kind: 'cast', ability: 'Q', x: me.x, y: MAP.height - 10 };
+      default: return { kind: 'hold' };
+    }
+  }
+  const ORDER_WORDS = { attack: 'attack the enemy', bolt: 'Spark Bolt at the enemy', skip: 'Skip toward the enemy', tower: 'walk to own tower', recall: 'recall', hold: 'hold still', brush: 'walk into the brush', boltAway: 'throw Spark Bolt at nothing' };
+  function order(team, kind) {
+    stop();
+    const r = LaneDuel.giveOrder(match, team, orderIntent(team, kind), kind === 'brush' ? 60 : 30);
+    match = r.match;
+    banner = r.accepted
+      ? { text: `<strong>Order accepted:</strong> ${esc(NAMES[team])} will ${esc(ORDER_WORDS[kind])}. Their bot takes over again in ${kind === 'brush' ? '3' : '1.5'} s.`, warn: false }
+      : { text: `<strong>Order refused by the sim:</strong> ${esc(r.reason)}.`, warn: true };
+    render();
+  }
+  function setView(v) {
+    view = v;
+    for (const k of ['truth', 'blue', 'red']) $('#view-' + k).setAttribute('aria-pressed', String(k === v));
+    banner = { text: v === 'truth' ? '<strong>Showing everything</strong>: the full truth that the sim and the Replay hold.' : `<strong>Showing ${esc(NAMES[v])}'s eyes</strong>: only what ${v === 'blue' ? 'Blue' : 'Red'} can see. Dashed rings mark where ${esc(NAMES[v])}'s brain believes the enemy is.`, warn: false };
+    render();
+  }
+  function stop() { if (playing) { clearInterval(playing); playing = null; $('#play').textContent = 'Play'; } }
+  function play() {
+    if (playing) return stop();
+    $('#play').textContent = 'Pause';
+    const startSnap = snap();
+    playing = setInterval(() => {
+      acc += Number($('#speed').value);
+      while (acc >= 1) { match = LaneDuel.advance(match); acc -= 1; }
+      banner = { text: `<strong>Playing.</strong> ${esc(diff(startSnap, snap()))}`, warn: false };
+      render();
+    }, 1000 / TPS);
+  }
+
+  // ---------- players ----------
+  function buildPlayers() {
+    $('#players').innerHTML = ['blue', 'red'].map(t => `
+      <section class="panel player ${t}" aria-label="${NAMES[t]}">
+        <div class="player-head"><h2>${NAMES[t]}</h2><span class="eyebrow">${t === 'blue' ? 'Blue' : 'Red'} · Lumen · Mid</span></div>
+        <div id="card-${t}"></div>
+        <details class="ratings"><summary>Player Ratings (1–20)</summary>
+          <div class="sliders">${RATINGS.map(([k, label, hint]) => `
+            <div class="slider"><label for="r-${t}-${k}">${label}</label><input type="range" id="r-${t}-${k}" min="1" max="20" step="1" value="${match.brains[t].ratings[k]}" data-team="${t}" data-key="${k}"><span class="num" id="rv-${t}-${k}">${match.brains[t].ratings[k]}</span><small>${hint}</small></div>`).join('')}
+          </div>
+          <p class="note" style="margin-top:8px">Laning, Teamwork and Consistency aren't used in a 1v1 with no minions, no teammates and only one match.</p>
+        </details>
+        <div><h3>Inside ${NAMES[t]}'s head</h3></div>
+        <div id="brain-${t}" style="display:grid;gap:10px"></div>
+      </section>`).join('');
+    document.querySelectorAll('.slider input').forEach(inp => inp.addEventListener('input', () => {
+      const { team, key } = inp.dataset, v = Number(inp.value);
+      match = LaneDuel.setRating(match, team, key, v);
+      freeRatings[team][key] = v;
+      $(`#rv-${team}-${key}`).textContent = v;
+      banner = { text: `<strong>${esc(NAMES[team])}'s ${esc(key === 'decisionMaking' ? 'Decision-making' : key[0].toUpperCase() + key.slice(1))} set to ${v}.</strong> The sim is unchanged; only the bot behaves differently.`, warn: false };
+      render();
+    }));
+  }
+  function intentWords(h) {
+    const foe = match.sim.heroes[LaneDuel.enemyOf(h.team)];
+    if (!h.alive) return 'None (dead)';
+    if (h.casting) return 'Winding up Spark Bolt';
+    if (h.dash) return 'Dashing (Skip)';
+    const it = h.intent;
+    if (it.kind === 'move') return `Walking to (${Math.round(it.x)}, ${Math.round(it.y)})`;
+    if (it.kind === 'attack') return `Attacking ${foe.name}`;
+    if (it.kind === 'recall') return 'Recalling';
+    return 'Holding still';
+  }
+  function cd(ticks) { return ticks > 0 ? `<span class="num">${(ticks / TPS).toFixed(1)} s</span>` : 'Ready'; }
+  function renderCard(t) {
+    const h = match.sim.heroes[t], s = match.sim;
+    const chips = [];
+    if (!h.alive) chips.push(`<span class="chip hot">Dead · back in ${((h.respawnAt - s.tick) / TPS).toFixed(1)} s</span>`);
+    if (h.alive && s.tick < h.slowUntil) chips.push('<span class="chip hot">Slowed</span>');
+    if (h.casting) chips.push('<span class="chip">Winding up</span>');
+    if (h.dash) chips.push('<span class="chip">Dashing</span>');
+    if (h.recallUntil !== null) chips.push(`<span class="chip">Recalling · ${((h.recallUntil - s.tick) / TPS).toFixed(1)} s</span>`);
+    if (h.alive && LaneDuel.brushAt(h.x, h.y)) chips.push('<span class="chip">In brush</span>');
+    const qLeft = h.casting ? h.casting.fireAt - s.tick + KIT.Q.cooldown : h.cd.Q;
+    const plan = match.reasoning[t];
+    $('#card-' + t).innerHTML = `
+      <div style="display:grid;gap:10px">
+        <div class="hp"><div style="display:flex;justify-content:space-between"><span class="eyebrow">Health</span><span class="num">${Math.round(h.hp)} / ${h.maxHp}</span></div><div class="bar"><i style="width:${(h.hp / h.maxHp) * 100}%"></i></div></div>
+        ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+        <dl class="facts">
+          <dt>Spark Bolt</dt><dd>${cd(qLeft)}</dd>
+          <dt>Skip</dt><dd>${cd(h.cd.E)}</dd>
+          <dt>Current order</dt><dd>${esc(intentWords(h))}</dd>
+          <dt>Plan</dt><dd>${plan && plan.chosenLabel ? esc(plan.chosenLabel) : '<span class="note">None yet</span>'}</dd>
+        </dl>
+      </div>`;
+  }
+  function renderBrain(t) {
+    const b = match.brains[t], rs = match.reasoning[t], now = match.sim.tick;
+    const foeTeam = LaneDuel.enemyOf(t), foeName = NAMES[foeTeam];
+    const m = b.memory.enemies[foeTeam];
+    const delay = Math.round(12 - 10 * ((b.ratings.reaction - 1) / 19));
+    const mem = [];
+    if (!m || m.seenTick === null) mem.push(`Hasn't seen ${foeName} yet.`);
+    else if (m.alive === false) mem.push(`${foeName} is dead (public scoreboard).`);
+    else if (m.visible) mem.push(`Sees ${foeName} with ${Math.round(m.hp)} HP, as of ${((now - m.seenTick) / TPS).toFixed(2)} s ago.`);
+    else mem.push(`Lost sight of ${foeName} ${((now - m.seenTick) / TPS).toFixed(1)} s ago, near (${Math.round(m.x)}, ${Math.round(m.y)}), with ${Math.round(m.hp)} HP.`);
+    if (!m || m.qReadyAt === null) mem.push(`${foeName}'s Spark Bolt: assumed ready (never seen it cast).`);
+    else if (now >= m.qReadyAt) mem.push(`${foeName}'s Spark Bolt: should be ready again.`);
+    else mem.push(`${foeName}'s Spark Bolt: ready in about ${((m.qReadyAt - now) / TPS).toFixed(1)} s (saw the cast at ${fmt(m.qSeenAt)}).`);
+    let table = '';
+    if (rs && rs.options && rs.options.length) {
+      table = `<div class="table-box"><table>
+        <thead><tr><th>Option</th><th class="r">Score</th><th class="r">Habit</th><th class="r">Noise</th><th class="r">Total</th></tr></thead>
+        <tbody>${rs.options.map(o => `<tr class="${o.id === rs.chosen ? 'chosen' : ''}"><td>${esc(o.label)}<span class="why">${esc(o.note)}</span></td><td class="r">${o.score.toFixed(2)}</td><td class="r">${o.bonus ? '+' + o.bonus.toFixed(2) : '–'}</td><td class="r">${(o.noise >= 0 ? '+' : '') + o.noise.toFixed(2)}</td><td class="r"><strong>${o.total.toFixed(2)}</strong></td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="note">Last decision at ${fmt(rs.tick)}. "Habit" is a small bonus for sticking with the current plan. Noise size ±${rs.sigma.toFixed(2)} comes from Decision-making ${b.ratings.decisionMaking}.</p>`;
+    }
+    $('#brain-' + t).innerHTML = `
+      <p class="brain-status">Reaction ${b.ratings.reaction}: acts on what it saw <strong class="num">${(delay / TPS).toFixed(2)} s</strong> ago.${rs && rs.status ? ` <strong>${esc(rs.status)}.</strong>` : ''}</p>
+      <div class="memory">${mem.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+      ${table || '<p class="note">No decision yet. Advance time to see one.</p>'}`;
+  }
+
+  // ---------- log ----------
+  const KIND = { refused: 'Refused', death: 'Kill', hit: 'Hit', miss: 'Miss', tower: 'Tower', recall: 'Recall', cast: 'Cast', respawn: 'Spawn', lost: 'Lost', ai: 'Plan' };
+  function renderLog() {
+    const items = match.sim.events.slice(-80).concat(match.aiLog.slice(-60)).sort((a, b) => b.tick - a.tick).slice(0, 60);
+    $('#log').innerHTML = items.length ? items.map(e => `<li class="${e.team} ${e.kind}"><span class="t">${fmt(e.tick)}</span><span class="k">${KIND[e.kind] || e.kind}</span><span class="m">${esc(e.text)}</span></li>`).join('') : '<li><span class="t"></span><span class="k"></span><span class="m note">Nothing yet.</span></li>';
+  }
+
+  // ---------- arena drawing ----------
+  const cv = $('#arena'), ctx = cv.getContext('2d');
+  const fog = document.createElement('canvas'), fctx = fog.getContext('2d');
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function draw() {
+    const W = cv.parentElement.clientWidth, H = Math.round((W * MAP.height) / MAP.width), dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.height = H + 'px'; }
+    const k = W / MAP.width, X = v => v * k;
+    const c = { field: css('--field'), line: css('--line'), ink: css('--ink'), muted: css('--muted'), blue: css('--blue'), red: css('--red'), brush: css('--brush'), fog: css('--fog'), surface: css('--surface') };
+    const team = t => (t === 'blue' ? c.blue : c.red);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = c.field; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = c.line; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(X(MAP.width / 2), 0); ctx.lineTo(X(MAP.width / 2), H); ctx.stroke(); ctx.setLineDash([]);
+    for (const b of MAP.brush) {
+      ctx.fillStyle = c.brush; ctx.globalAlpha = 0.28; ctx.fillRect(X(b.x), X(b.y), X(b.w), X(b.h)); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c.brush; ctx.strokeRect(X(b.x) + 0.5, X(b.y) + 0.5, X(b.w) - 1, X(b.h) - 1);
+      ctx.fillStyle = c.brush; ctx.font = `600 ${Math.max(9, 11 * Math.min(1, W / 700))}px Inter, sans-serif`; ctx.fillText('brush', X(b.x) + 4, X(b.y + b.h) - 5);
+    }
+    for (const t of ['blue', 'red']) {
+      const b = MAP.bases[t], tw = MAP.towers[t];
+      ctx.fillStyle = team(t); ctx.globalAlpha = 0.12; ctx.beginPath(); ctx.arc(X(b.x), X(b.y), X(HERO.fountainRadius), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = team(t); ctx.globalAlpha = 0.35; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(X(tw.x), X(tw.y), X(TOWER.range), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      const ts = Math.max(8, X(40)); ctx.fillStyle = team(t); ctx.fillRect(X(tw.x) - ts / 2, X(tw.y) - ts / 2, ts, ts);
+    }
+    const s = match.sim;
+    if (view !== 'truth') {
+      fog.width = cv.width; fog.height = cv.height;
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = c.fog; fctx.fillRect(0, 0, W, H);
+      fctx.globalCompositeOperation = 'destination-out'; fctx.fillStyle = '#000';
+      const viewers = Object.values(s.heroes).filter(h => h.team === view && h.alive).map(h => [h.x, h.y, HERO.vision]).concat([[MAP.towers[view].x, MAP.towers[view].y, TOWER.vision]]);
+      for (const [x, y, r] of viewers) { fctx.beginPath(); fctx.arc(X(x), X(y), X(r), 0, Math.PI * 2); fctx.fill(); }
+      fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = c.fog;
+      for (const b of MAP.brush) {
+        const inside = Object.values(s.heroes).some(h => h.team === view && h.alive && LaneDuel.brushAt(h.x, h.y) === b.id);
+        if (!inside) fctx.fillRect(X(b.x), X(b.y), X(b.w), X(b.h));
+      }
+      ctx.drawImage(fog, 0, 0, W, H);
+    }
+    const shown = (x, y, t) => view === 'truth' || t === view || LaneDuel.visibleTo(s, view, x, y);
+    const r = Math.max(6, X(HERO.radius));
+    const label = Math.max(9, Math.min(12, W / 70));
+    for (const p of s.projectiles) {
+      if (!shown(p.x, p.y, p.team)) continue;
+      ctx.strokeStyle = team(p.team); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(p.x - p.vx * 0.07), X(p.y - p.vy * 0.07)); ctx.lineTo(X(p.x), X(p.y)); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = team(p.team); ctx.beginPath(); ctx.arc(X(p.x), X(p.y), Math.max(3, X(KIT.Q.width) * 0.6), 0, Math.PI * 2); ctx.fill();
+    }
+    for (const h of Object.values(s.heroes)) {
+      if (!h.alive) {
+        const b = MAP.bases[h.team];
+        ctx.fillStyle = team(h.team); ctx.font = `600 ${label}px Inter, sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText(`${h.name} ✝ ${((h.respawnAt - s.tick) / TPS).toFixed(1)}s`, X(b.x + (h.team === 'blue' ? 120 : -120)), X(b.y) - X(HERO.fountainRadius) * 0.4); ctx.textAlign = 'left';
+        continue;
+      }
+      if (!shown(h.x, h.y, h.team)) continue;
+      if (view === 'truth' || view === h.team) {
+        const it = h.intent; let tx = null, ty = null;
+        if (it.kind === 'move') { tx = it.x; ty = it.y; } else if (it.kind === 'attack') { const f = s.heroes[it.targetId]; tx = f.x; ty = f.y; }
+        if (h.casting) { tx = h.casting.x; ty = h.casting.y; }
+        if (tx !== null) { ctx.strokeStyle = team(h.team); ctx.globalAlpha = 0.5; ctx.setLineDash(h.casting ? [] : [3, 4]); ctx.beginPath(); ctx.moveTo(X(h.x), X(h.y)); ctx.lineTo(X(tx), X(ty)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+      }
+      ctx.fillStyle = team(h.team); ctx.beginPath(); ctx.arc(X(h.x), X(h.y), r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = c.surface; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+      if (s.tick < h.slowUntil) { ctx.strokeStyle = c.ink; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(X(h.x), X(h.y), r + 4, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      if (h.recallUntil !== null) { const f = 1 - (h.recallUntil - s.tick) / HERO.recallTicks; ctx.strokeStyle = c.ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(h.x), X(h.y), r + 6, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
+      const bw = Math.max(26, r * 2.6), by = X(h.y) - r - 9;
+      ctx.fillStyle = c.line; ctx.fillRect(X(h.x) - bw / 2, by, bw, 4);
+      ctx.fillStyle = team(h.team); ctx.fillRect(X(h.x) - bw / 2, by, (bw * h.hp) / h.maxHp, 4);
+      ctx.fillStyle = c.ink; ctx.font = `600 ${label}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(h.name, X(h.x), X(h.y) + r + label + 2); ctx.textAlign = 'left';
+    }
+    if (view !== 'truth') {
+      const foe = LaneDuel.enemyOf(view), m = match.brains[view].memory.enemies[foe];
+      if (m && m.seenTick !== null && m.alive !== false) {
+        ctx.strokeStyle = team(foe); ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(X(m.x), X(m.y), r + 2, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+        ctx.fillStyle = c.muted; ctx.font = `500 ${label - 1}px Inter, sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText(m.visible ? `brain: ${((s.tick - m.seenTick) / TPS).toFixed(2)}s old` : `last seen ${((s.tick - m.seenTick) / TPS).toFixed(1)}s ago`, X(m.x), X(m.y) - r - 14); ctx.textAlign = 'left';
+      }
+    }
+  }
+
+  // ---------- walkthroughs ----------
+  function renderTabs() {
+    $('#tabs').innerHTML = SCENARIOS.map((sc, i) => `<button type="button" role="tab" aria-selected="${i === wt.tab}" data-tab="${i}">${esc(sc.title)}</button>`).join('');
+    $('#tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { wt.tab = Number(b.dataset.tab); wt.next = -1; renderScenario(); renderTabs(); }));
+  }
+  function renderScenario() {
+    const sc = SCENARIOS[wt.tab];
+    const steps = [['Set up this scenario (resets the lane)', null], ...sc.steps];
+    $('#scenario').innerHTML = `<div class="scenario">
+      <p>${esc(sc.about)}</p>
+      <p class="watch"><strong>What to watch for:</strong> ${esc(sc.watch)}</p>
+      <ol class="steps">${steps.map(([label], i) => {
+        const idx = i - 1, done = idx < wt.next || (i === 0 && wt.next >= 0), next = (i === 0 && wt.next === -1) || idx === wt.next;
+        return `<li class="${done ? 'done' : next ? 'next' : ''}"><button type="button" class="btn ${next ? 'primary' : ''}" data-step="${i}" ${next ? '' : 'disabled'}>${esc(label)}</button></li>`;
+      }).join('')}</ol>
+      ${wt.next >= sc.steps.length ? '<p class="note">Walkthrough finished. Keep poking with the controls above, or run it again.</p><div><button type="button" class="btn" id="again">Run it again</button></div>' : ''}
+    </div>`;
+    $('#scenario').querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => runStep(Number(b.dataset.step))));
+    const again = $('#again'); if (again) again.addEventListener('click', () => runStep(0));
+  }
+  function runStep(i) {
+    const sc = SCENARIOS[wt.tab];
+    if (i === 0) {
+      $('#seed').value = sc.setup.seed;
+      freeRatings = structuredClone(sc.setup.ratings);
+      reset(sc.setup);
+      if (view !== 'truth') setView('truth');
+      banner = { text: `<strong>Scenario ready: ${esc(sc.title)}.</strong> Same seed every time, so it plays out the same way.`, warn: false };
+      wt.next = 0;
+    } else {
+      const [, act] = sc.steps[i - 1];
+      stop();
+      if (act[0] === 'advance') advanceBy(act[1], sc.steps[i - 1][0]);
+      else if (act[0] === 'order') order(act[1], act[2]);
+      else if (act[0] === 'view') setView(act[1]);
+      wt.next = i;
+    }
+    render();
+  }
+
+  // ---------- render all ----------
+  function render() {
+    $('#clock').textContent = fmt(match.sim.tick);
+    $('#tickNote').textContent = `tick ${match.sim.tick} · bots decide every ${LaneDuel.DECISION_EVERY_TICKS} ticks`;
+    const ch = $('#changed'); ch.innerHTML = banner.text; ch.classList.toggle('warn', banner.warn);
+    renderCard('blue'); renderCard('red'); renderBrain('blue'); renderBrain('red');
+    renderLog(); draw(); renderScenario();
+  }
+
+  $('#play').addEventListener('click', play);
+  $('#tick1').addEventListener('click', () => { stop(); advanceBy(1, 'Advanced 1 tick'); });
+  $('#tick10').addEventListener('click', () => { stop(); advanceBy(10, 'Advanced 0.5 s'); });
+  $('#tick60').addEventListener('click', () => { stop(); advanceBy(60, 'Advanced 3 s'); });
+  $('#reset').addEventListener('click', () => { wt.next = -1; reset(freeSetup()); banner = { text: '<strong>Free play reset</strong> with the seed and ratings shown.', warn: false }; render(); });
+  for (const k of ['truth', 'blue', 'red']) $('#view-' + k).addEventListener('click', () => setView(k));
+  document.querySelectorAll('[data-order]').forEach(b => b.addEventListener('click', () => order($('#orderTeam').value, b.dataset.order)));
+  window.addEventListener('resize', () => draw());
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => draw()); } catch (e) { /* older browsers */ }
+  new MutationObserver(() => draw()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  reset(freeSetup());
+  renderTabs();
+  advanceBy(40, 'Opened with 2 seconds already played');
+  banner = { text: 'Two seconds have been played so you can see a decision. Pick a walkthrough below, or press Play.', warn: false };
+  render();
+})();
+</script>
