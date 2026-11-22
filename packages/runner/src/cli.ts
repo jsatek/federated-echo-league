@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { encodeReplay } from "@fel/replay";
-import { runMatch } from "./index.ts";
+import { replayFileName, runMatch } from "./index.ts";
 
 const { values } = parseArgs({
   options: {
@@ -22,7 +22,7 @@ if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) {
 }
 
 // pnpm runs scripts from the repo root, so relative paths land there.
-const out = resolve(values.out ?? `replays/seed-${seed}.replay.json.gz`);
+const out = resolve(values.out ?? `replays/${replayFileName(seed)}`);
 const bytes = await encodeReplay(runMatch({ seed, durationSeconds }));
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, bytes);

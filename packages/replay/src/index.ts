@@ -62,7 +62,7 @@ export interface ReplayListing {
   file: string;
   seed: number;
   durationSeconds: number;
-  heroes: { team: TeamId; heroName: string; player: string }[];
+  heroes: Pick<ReplayHero, "team" | "heroName" | "player">[];
 }
 
 export async function encodeReplay(replay: Replay): Promise<Uint8Array> {

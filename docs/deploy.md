@@ -16,7 +16,7 @@ The public site is plain static files (ADR-0001). Cloudflare Pages builds them f
    - **Root directory:** leave empty.
    - **Environment variables:** add `PNPM_VERSION` = `10.28.0`. Cloudflare reads the Node version from `.node-version` by itself, but it does not read the pnpm version from `package.json`.
 5. **Save and Deploy**, and wait for the build log to finish (about a minute).
-6. Recommended: in the project's **Settings** → **Builds & deployments**, set preview deployments to **None**. Otherwise every other branch (for example `prototype/lane-duel`) also tries to build, and those builds fail.
+6. Recommended: in the project's **Settings** → **Builds & deployments**, set preview deployments to **None**. Otherwise every other branch also tries to build. Those builds aren't needed, and the `prototype/lane-duel` branch has no build command, so it fails.
 
 ## After setup
 

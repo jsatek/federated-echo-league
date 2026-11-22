@@ -14,6 +14,9 @@ import { createPlaceholderTeamAi } from "@fel/ai";
 import type { Replay } from "@fel/replay";
 import { createSim } from "@fel/sim";
 
+/** The file name a Match's Replay is saved under. */
+export const replayFileName = (seed: number) => `seed-${seed}.replay.json.gz`;
+
 /** ADR-0008: Tracks are sampled at 10 Hz, every other Tick. */
 const SAMPLE_EVERY_TICKS = 2;
 

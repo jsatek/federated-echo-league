@@ -3,7 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeReplay, type ReplayIndex } from "@fel/replay";
-import { runMatch } from "./index.ts";
+import { replayFileName, runMatch } from "./index.ts";
 
 export interface PublishOptions {
   seeds: readonly number[];
@@ -16,7 +16,7 @@ export async function publishReplays({ seeds, durationSeconds, outDir }: Publish
   const index: ReplayIndex = { replays: [] };
   for (const seed of seeds) {
     const replay = runMatch({ seed, durationSeconds });
-    const file = `seed-${seed}.replay.json.gz`;
+    const file = replayFileName(seed);
     writeFileSync(join(outDir, file), await encodeReplay(replay));
     index.replays.push({
       file,

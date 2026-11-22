@@ -1,7 +1,7 @@
 // The Replay list page: reads replays/index.json and links each Replay into the viewer.
 
 import type { ReplayIndex } from "@fel/replay";
-import { toListItem } from "./listing.ts";
+import { toReplayLink } from "./replay-link.ts";
 
 const list = document.getElementById("replays")!;
 
@@ -11,7 +11,7 @@ try {
   const index = (await response.json()) as ReplayIndex;
   list.replaceChildren(
     ...index.replays.map((listing) => {
-      const { href, title, detail } = toListItem(listing);
+      const { href, title, detail } = toReplayLink(listing);
       const li = document.createElement("li");
       const a = Object.assign(document.createElement("a"), { className: "replay", href });
       a.append(span("title", title), span("detail", detail));
