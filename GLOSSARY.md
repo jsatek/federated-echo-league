@@ -112,6 +112,18 @@ _Avoid_: Turret
 A group of weak computer-controlled units that spawns on a timer and walks down a Lane.
 _Avoid_: Creeps
 
+**Last Hit**:
+The killing blow on an enemy minion; only the Hero who lands it earns its gold.
+_Avoid_: CS (fine in casual talk, but write Last Hit), farm
+
+**Lane Priority**:
+Which Team's Minion Wave is pushing in a Lane, which frees that Team's Players to leave the Lane or pressure its Tower.
+_Avoid_: Prio, lane control
+
+**Brush**:
+Tall grass that hides anyone inside it from enemies who aren't in the same patch.
+_Avoid_: Bush, grass
+
 **Objective**:
 A neutral monster on the map that either Team can kill for a Team-wide reward.
 _Avoid_: Boss, epic monster
