@@ -1,0 +1,3 @@
+# v1 progression: auto-scaling levels and gold auto-spent on recall; one damage type
+
+There is no shop in v1. Heroes earn XP to level 1–12, and abilities scale automatically (no skill-point choices). Gold is spent automatically on generic stat upgrades when a Hero recalls to base, so recall timing is a real bot decision and gold still matters in stats. There is one damage type and one armour stat. We deferred the shop, items and a second damage type (physical/magic with separate defences) because they mostly add depth through itemisation. That is a lot of AI and balance work before the core sim and macro AI are proven.

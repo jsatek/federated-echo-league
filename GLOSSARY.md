@@ -19,9 +19,15 @@ _Avoid_: Bot (for the person), agent, champion
 A dial describing one aspect of a Player's skill or habits, which makes otherwise-competent bot play look human.
 _Avoid_: Stat, attribute
 
+**Skill Rating**:
+A Player Rating where higher is better (Mechanics, Reaction, Positioning, Decision-making, Laning, Consistency).
+
+**Personality Rating**:
+A Player Rating with no better or worse end, only a style (Aggression, Teamwork).
+
 **Role**:
-The job a Player does for their Team in a Match; each Role has its own decision rules.
-_Avoid_: Position, class
+The job a Player does for their Team in a Match: Top, Jungle, Mid, Carry or Support. Each Role has its own decision rules.
+_Avoid_: Position, class, lane (a Lane is a place, not a job)
 
 ## Match
 
@@ -40,6 +46,17 @@ _Avoid_: Champion, character, unit
 **Ability Type**:
 The delivery shape of an ability (e.g. projectile, cone, dash, zone), one of a small fixed set; each Hero ability is one Ability Type plus Effects.
 _Avoid_: Skill, spell
+
+**Passive**:
+A Hero's always-on ability; every Hero has exactly one.
+
+**Ultimate**:
+A Hero's strongest ability, with a long cooldown; every Hero has exactly one, alongside three basic abilities.
+_Avoid_: Ult (in docs), R
+
+**Recall**:
+A Hero returning to base, where their gold is spent automatically on stat upgrades.
+_Avoid_: Back, base, teleport
 
 **Effect**:
 What an ability does to whatever it reaches (e.g. damage, heal, stun, slow), with its own numbers.
@@ -62,6 +79,10 @@ _Avoid_: Command, action, input
 **Team Brain**:
 The part of a Team's AI that chooses the Team's plan and hands each Player an Assignment.
 _Avoid_: Coach, commander
+
+**Team Plan**:
+One of the macro options a Team Brain chooses between (e.g. Farm Lanes, Take Objective, Split-Push).
+_Avoid_: Strategy, macro call
 
 **Role Brain**:
 The part of a Player's AI that carries out their Assignment using the rules for their Role.
