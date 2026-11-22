@@ -4,6 +4,20 @@ A fictional MOBA esports league that runs itself: matches are simulated offline,
 
 Read `GLOSSARY.md` and `docs/adr/` before working in any area.
 
+## Install, build and test
+
+The code is a pnpm workspace: seven packages under `packages/` (see ADR-0006) plus repo tooling under `tools/`.
+
+1. **Install Node 22.23.5.** This exact version is pinned in `.nvmrc` so the same Seed gives the same match (ADR-0007). With [nvm](https://github.com/nvm-sh/nvm): `nvm install` then `nvm use` in the repo folder. Check with `node -v`.
+2. **Turn on pnpm** (it ships with Node): `corepack enable`. The pnpm version is pinned in `package.json`, so corepack fetches the right one.
+3. **Install dependencies:** `pnpm install`. It refuses to run on the wrong Node version.
+4. **Test everything:** `pnpm test`. This first runs the package boundary check (ADR-0006), then every package's tests. Test one package with `pnpm vitest run --project sim`.
+5. **Typecheck and build:** `pnpm typecheck` checks types everywhere, and `pnpm build` compiles every package into its `dist/` folder.
+
+Packages are named `@fel/<name>`. Each package's `package.json` points straight at `src/index.ts`, so tests and Node use the TypeScript source without a build step. When one package starts using another, add it to `dependencies` (`"@fel/contract": "workspace:*"`) and to `references` in that package's `tsconfig.json`.
+
+The boundary check lives in `tools/boundaries/`. It reads every package's `package.json` and imports and fails if `viewer` or `site` can reach `sim`, `ai` or `contract`, even indirectly, or if `sim` and `ai` depend on each other. To see it fail, add `import "@fel/ai";` to any file in `packages/viewer/src/`, then run `pnpm test`.
+
 ## Working with the owner
 
 The owner is new to git and coding workflows. Explain each step plainly (what a command does and why) and go one step at a time.
