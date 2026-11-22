@@ -12,7 +12,9 @@
     "check:boundaries": "node tools/boundaries/cli.ts",
     "test": "pnpm check:boundaries && vitest run",
     "match": "node packages/runner/src/cli.ts",
-    "viewer": "pnpm --filter @fel/viewer dev"
+    "viewer": "pnpm --filter @fel/viewer dev",
+    "build:pages": "node tools/pages/build.ts",
+    "preview:pages": "pnpm --filter @fel/site exec vite preview --outDir ../../dist-pages"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

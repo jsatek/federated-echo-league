@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Federated Echo League</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; padding: 16px; background: #0f1218; color: #e6e9ef; font: 15px/1.4 system-ui, sans-serif; }
+      main { max-width: 640px; margin: 0 auto; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .lede { margin: 0 0 16px; color: #9aa3b2; }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+      a.replay { display: block; padding: 12px 14px; border-radius: 8px; background: #181d26; color: inherit; text-decoration: none; border: 1px solid #262d3a; }
+      a.replay:hover, a.replay:focus-visible { border-color: #4aa3ff; }
+      .title, .detail { display: block; }
+      .title { font-weight: 600; }
+      .detail { color: #9aa3b2; font-variant-numeric: tabular-nums; }
+      #error { color: #ff8a8a; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Federated Echo League</h1>
+      <p class="lede">Replays. Tap one to watch it.</p>
+      <ul id="replays"><li class="detail">Loading…</li></ul>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

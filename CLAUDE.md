@@ -17,9 +17,15 @@ The code is a pnpm workspace: eight packages under `packages/` (see ADR-0006 and
 ### Run a Match and watch it
 
 1. `pnpm match --seed 7` plays a Match and writes `replays/seed-7.replay.json.gz`. Add `--seconds 60` for a longer Match. The same Seed always gives a byte-identical file. The `replays/` folder isn't stored in git.
-2. `pnpm viewer` starts the viewer on your computer and prints a web address (like `http://localhost:5173`). Open it and add `?replay=seed-7.replay.json.gz` to watch that file. With no `?replay=`, it plays `seed-1.replay.json.gz`. Press Ctrl+C in the terminal to stop it.
+2. `pnpm viewer` starts the viewer on your computer and prints a web address (like `http://localhost:5173`). Open it and add `?replay=seed-7.replay.json.gz` to watch that file. Press Ctrl+C in the terminal to stop it.
 
-Packages are named `@fel/<name>`. Each library package's `package.json` points straight at `src/index.ts`, so tests and Node use the TypeScript source without a build step. `viewer` is a browser app, not a library, so it has no `index.ts`. Vite builds it from `index.html` (`pnpm --filter @fel/viewer build` writes `packages/viewer/dist/web`). When one package starts using another, add it to `dependencies` (`"@fel/contract": "workspace:*"`) and to `references` in that package's `tsconfig.json`.
+### Build the public site
+
+1. `pnpm build:pages` builds everything the static host serves into `dist-pages/`: the Replay list (`site`) at the top, the viewer in `viewer/`, and freshly played Replays plus `index.json` in `replays/`. The published Seeds are listed in `packages/runner/src/publish-cli.ts`.
+2. `pnpm preview:pages` serves that folder on your computer so you can click through it before pushing.
+3. Cloudflare Pages runs `pnpm build:pages` on every push to the production branch. Setup steps are in `docs/deploy.md`.
+
+Packages are named `@fel/<name>`. Each library package's `package.json` points straight at `src/index.ts`, so tests and Node use the TypeScript source without a build step. `viewer` and `site` are browser apps, not libraries, so they have no `index.ts`. Vite builds each from its `index.html`; `pnpm build:pages` puts them together. When one package starts using another, add it to `dependencies` (`"@fel/contract": "workspace:*"`) and to `references` in that package's `tsconfig.json`.
 
 The boundary check lives in `tools/boundaries/`. It reads every package's `package.json` and imports and fails if `viewer` or `site` can reach anything other than `replay` and `league`, even indirectly, if `sim` and `ai` depend on each other, or if any package depends on `runner` (ADR-0016). To see it fail, add `import "@fel/ai";` to any file in `packages/viewer/src/`, then run `pnpm test`.
 

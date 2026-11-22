@@ -52,6 +52,19 @@ interface ReplayFile extends Replay {
   version: number;
 }
 
+/** The list of published Replays (`index.json` beside the Replay files). */
+export interface ReplayIndex {
+  replays: ReplayListing[];
+}
+
+export interface ReplayListing {
+  /** File name, relative to the index. */
+  file: string;
+  seed: number;
+  durationSeconds: number;
+  heroes: { team: TeamId; heroName: string; player: string }[];
+}
+
 export async function encodeReplay(replay: Replay): Promise<Uint8Array> {
   const file: ReplayFile = {
     format: REPLAY_FORMAT,
