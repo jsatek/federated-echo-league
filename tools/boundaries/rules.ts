@@ -1,5 +1,6 @@
 // ADR-0006: viewer and site may depend only on replay and league;
 // sim and ai meet only through contract, never each other.
+// ADR-0016: runner sits on top; it may use anything, nothing may use it.
 
 export interface WorkspacePackage {
   /** Short name, e.g. "sim" for @fel/sim. */
@@ -28,7 +29,11 @@ const FORBIDDEN: Record<string, readonly string[]> = {
   ai: ["sim"],
 };
 
+/** Top-level packages: they may depend on others, but nothing may depend on them. */
+const TOP_LEVEL = ["runner"];
+
 function isAllowed(from: string, to: string): boolean {
+  if (TOP_LEVEL.includes(to)) return false;
   const only = ONLY_ALLOWED[from];
   if (only !== undefined) return only.includes(to);
   return !(FORBIDDEN[from] ?? []).includes(to);

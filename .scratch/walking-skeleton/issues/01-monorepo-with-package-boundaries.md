@@ -19,3 +19,5 @@
 Open question for the owner: the check also follows indirect dependencies, so `league` can never import `sim` or `ai` (otherwise viewer would pull the sim in through league). Whatever runs Matches from a Seed needs a home outside `league`, or `league` needs splitting. Decide this before ticket 02 and record it in ADR-0006.
 
 Known follow-ups: `pnpm build` also emits test files into `dist/`, and the base tsconfig has no DOM types. Viewer and site get a browser bundler and DOM types in tickets 02 and 03.
+
+**Open question resolved (owner approved).** A new `runner` package plays Matches from a Seed (ADR-0016). `league` stays browser-safe, and the boundary check forbids any package from depending on `runner`.

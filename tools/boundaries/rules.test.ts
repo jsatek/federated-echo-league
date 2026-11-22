@@ -54,3 +54,14 @@ test("viewer and site may depend only on replay and league", () => {
     ]),
   ).toEqual([{ from: "viewer", to: "site", via: ["viewer", "site"] }]);
 });
+
+test("runner may use sim and ai, but no package may depend on runner", () => {
+  expect(
+    findViolations([
+      { name: "sim", dependsOn: [] },
+      { name: "ai", dependsOn: [] },
+      { name: "runner", dependsOn: ["sim", "ai", "league"] },
+      { name: "league", dependsOn: ["runner"] },
+    ]),
+  ).toEqual([{ from: "league", to: "runner", via: ["league", "runner"] }]);
+});

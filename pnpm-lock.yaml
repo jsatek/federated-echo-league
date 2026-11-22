@@ -26,6 +26,8 @@ importers:
 
   packages/replay: {}
 
+  packages/runner: {}
+
   packages/sim: {}
 
   packages/site: {}

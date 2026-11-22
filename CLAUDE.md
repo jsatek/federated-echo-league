@@ -6,7 +6,7 @@ Read `GLOSSARY.md` and `docs/adr/` before working in any area.
 
 ## Install, build and test
 
-The code is a pnpm workspace: seven packages under `packages/` (see ADR-0006) plus repo tooling under `tools/`.
+The code is a pnpm workspace: eight packages under `packages/` (see ADR-0006 and ADR-0016) plus repo tooling under `tools/`.
 
 1. **Install the pinned Node version** (22.23.5, written in `.nvmrc`). An exact version means the same Seed gives the same Match (ADR-0007). If you change it, change `.nvmrc`, `.node-version` (read by Cloudflare Pages) and `engines` in `package.json` together. With [nvm](https://github.com/nvm-sh/nvm): `nvm install` then `nvm use` in the repo folder. Check with `node -v`.
 2. **Turn on pnpm** (it ships with Node): `corepack enable`. The pnpm version is pinned in `package.json`, so corepack fetches the right one.
@@ -16,7 +16,7 @@ The code is a pnpm workspace: seven packages under `packages/` (see ADR-0006) pl
 
 Packages are named `@fel/<name>`. Each package's `package.json` points straight at `src/index.ts`, so tests and Node use the TypeScript source without a build step. When one package starts using another, add it to `dependencies` (`"@fel/contract": "workspace:*"`) and to `references` in that package's `tsconfig.json`.
 
-The boundary check lives in `tools/boundaries/`. It reads every package's `package.json` and imports and fails if `viewer` or `site` can reach anything other than `replay` and `league`, even indirectly, or if `sim` and `ai` depend on each other. To see it fail, add `import "@fel/ai";` to any file in `packages/viewer/src/`, then run `pnpm test`.
+The boundary check lives in `tools/boundaries/`. It reads every package's `package.json` and imports and fails if `viewer` or `site` can reach anything other than `replay` and `league`, even indirectly, if `sim` and `ai` depend on each other, or if any package depends on `runner` (ADR-0016). To see it fail, add `import "@fel/ai";` to any file in `packages/viewer/src/`, then run `pnpm test`.
 
 ## Working with the owner
 

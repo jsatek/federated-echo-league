@@ -1,12 +1,29 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/contract" },
-    { "path": "packages/sim" },
-    { "path": "packages/ai" },
-    { "path": "packages/replay" },
-    { "path": "packages/league" },
-    { "path": "packages/viewer" },
-    { "path": "packages/site" }
+    {
+      "path": "packages/contract"
+    },
+    {
+      "path": "packages/sim"
+    },
+    {
+      "path": "packages/ai"
+    },
+    {
+      "path": "packages/replay"
+    },
+    {
+      "path": "packages/league"
+    },
+    {
+      "path": "packages/viewer"
+    },
+    {
+      "path": "packages/site"
+    },
+    {
+      "path": "packages/runner"
+    }
   ]
 }

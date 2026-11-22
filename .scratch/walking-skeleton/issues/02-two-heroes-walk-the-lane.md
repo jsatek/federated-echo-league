@@ -11,3 +11,7 @@
 - [ ] The sim only talks to the bot through `contract`; the viewer depends only on `replay`
 - [ ] The viewer plays the Replay with interpolation between Track samples and fits a 400px-wide screen
 - [ ] The Replay format carries a version number, and the viewer refuses an unknown version with a clear message
+
+## Comments
+
+The "single command runs a Match from a Seed" lives in the `runner` package (ADR-0016). `runner` depends on `sim`, `ai`, `contract` and `replay`.
