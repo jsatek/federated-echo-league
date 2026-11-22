@@ -38,8 +38,38 @@ A playable character a Player controls in a Match, built from Ability Types.
 _Avoid_: Champion, character, unit
 
 **Ability Type**:
-One of a small fixed set (~15) of reusable ability templates; each Hero ability is an Ability Type with its own numbers.
+The delivery shape of an ability (e.g. projectile, cone, dash, zone), one of a small fixed set; each Hero ability is one Ability Type plus Effects.
 _Avoid_: Skill, spell
+
+**Effect**:
+What an ability does to whatever it reaches (e.g. damage, heal, stun, slow), with its own numbers.
+_Avoid_: Payload, modifier
+
+**Tick**:
+One step of Match time (1/20 of a second); the unit all durations are measured in.
+_Avoid_: Frame, turn
+
+**Match Event**:
+A timestamped thing that happened in a Match (a cast, a death, a Tower falling), recorded in the Replay and the basis of every stat.
+_Avoid_: Log entry, action
+
+## AI
+
+**Intent**:
+What a Player's bot wants its Hero to do next (move, attack, cast, hold, recall); the sim decides what actually happens.
+_Avoid_: Command, action, input
+
+**Team Brain**:
+The part of a Team's AI that chooses the Team's plan and hands each Player an Assignment.
+_Avoid_: Coach, commander
+
+**Role Brain**:
+The part of a Player's AI that carries out their Assignment using the rules for their Role.
+_Avoid_: Hero AI, micro AI
+
+**Assignment**:
+The job the Team Brain has currently given one Player (e.g. "hold bot Lane", "group mid for the Objective").
+_Avoid_: Order, task
 
 **Seed**:
 The single number that, with the code version, fully determines how a Match plays out.
