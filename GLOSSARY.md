@@ -40,3 +40,31 @@ _Avoid_: Champion, character, unit
 **Ability Type**:
 One of a small fixed set (~15) of reusable ability templates; each Hero ability is an Ability Type with its own numbers.
 _Avoid_: Skill, spell
+
+**Seed**:
+The single number that, with the code version, fully determines how a Match plays out.
+
+**Highlight**:
+A moment in a Match the sim marks as worth watching, used by the viewer to skip between key moments.
+_Avoid_: Clip, key event
+
+## Map
+
+**Lane**:
+One of the three paths between the two bases along which minion waves march and towers stand.
+
+**Tower**:
+A static defensive structure in a Lane that must be destroyed to push towards the enemy base.
+_Avoid_: Turret
+
+**Minion Wave**:
+A group of weak computer-controlled units that spawns on a timer and walks down a Lane.
+_Avoid_: Creeps
+
+**Objective**:
+A neutral monster on the map that either Team can kill for a Team-wide reward.
+_Avoid_: Boss, epic monster
+
+**Vision**:
+What a Team can currently see; the AI may only act on its own Team's Vision.
+_Avoid_: Fog of war (that is the absence of Vision), sight
