@@ -1,0 +1,3 @@
+# Bases are far from the lane, so leaving it has a cost
+
+Each base sits well behind its Team's first Tower: about 5 s of walking from the middle of the lane, off-screen in the viewer. Recalling takes 4 s on top. Going home therefore costs Last Hits, XP and Tower health while you are away, and that cost is what makes recall timing, Shove and reset, and Lane Priority mean anything. In the first prototype the base sat right behind the Tower, so backing off to the Tower healed you for free. Bots traded back and forth endlessly and nobody died. Map geography is a game rule, not decoration: don't shorten it to fit a screen.
