@@ -157,12 +157,16 @@ tr.chosen td:first-child { box-shadow: inset 3px 0 0 var(--team); font-weight: 6
 
 <div class="wrap">
   <header>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow">Federated Echo League · AI interface · v2</span><span class="badge">Prototype · throwaway</span></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow">Federated Echo League · AI interface · v3</span><span class="badge">Prototype · throwaway</span></div>
     <h1>Lane Duel Lab</h1>
-    <p class="lede">The question: once a lane has real stakes (minions to last-hit, a tower that can fall, gold you only cash in at base), do bots that see only their team's Vision and send only orders make trades, ambushes and recalls that look like people playing?</p>
+    <p class="lede">The question: if each bot holds a Stance for a few seconds (farm and punish, shove and reset, all-in…) instead of re-picking its single best move 10 times a second, does the lane look like two people with intentions: farming first, trading on purpose, dropping aggro in the brush?</p>
     <details>
-      <summary>What's new in v2, and what's still simplified</summary>
+      <summary>What's new in v3 and v2, and what's still simplified</summary>
       <ul>
+        <li><strong>v3, Stances:</strong> each bot commits to a Stance for at least 3 s, and only urgent events end it early: about to die, their escape just went down, the tower or several minions are hitting me. Decision-making noise is rolled once per Stance call. Actions inside a Stance carry no noise, so they don't twitch.</li>
+        <li><strong>v3, matchups:</strong> each Hero's range, escape, engage reach and poke are read from its abilities. Ranged against melee leans towards farming and punishing, spaced around the enemy's engage timer. Melee against ranged respects them until their escape is down.</li>
+        <li><strong>v3, brush and aggro:</strong> minions and towers lose track of a Hero they can't see, so stepping into the brush drops aggro. Bots can see what's hitting them and use that.</li>
+        <li><strong>v3, recall:</strong> a bot recalls when nobody can see and reach it during the 4 s channel. Otherwise it walks back first, and never stands frozen.</li>
         <li><strong>Stakes:</strong> a Minion Wave every 15 s. Gold comes only from Last Hits and kills, and is spent automatically on upgrades when you reach base. XP takes you to level 6. Towers have health and can fall. Minions and towers turn on any Hero who hits an enemy Hero near them.</li>
         <li><strong>Two Heroes:</strong> <em>Warden</em> (melee: Charge = Dash + 1 s stun, Cleave = cone, Brace = shield) and <em>Lumen</em> (ranged: Spark Bolt = projectile + slow, which minions block; Flash Freeze = delayed circle + 1 s stun; Blink). Every ability is an Ability Type plus Effects, run by the same generic code.</li>
         <li><strong>Brush on both sides of the lane:</strong> bots can lurk for an ambush, slip in to break a chase, avoid walking past brush where an enemy probably is, or face-check it if their Positioning is poor.</li>
@@ -213,7 +217,7 @@ tr.chosen td:first-child { box-shadow: inset 3px 0 0 var(--team); font-weight: 6
   <div class="duo" id="players"></div>
 
   <section class="panel" aria-label="Event feed">
-    <div class="arena-head"><h2>What happened</h2><span class="note">Newest first. Last Hits are counted on the scoreboard, not listed here. "Plan" lines are bot decisions; a Replay wouldn't store them.</span></div>
+    <div class="arena-head"><h2>What happened</h2><span class="note">Newest first. Last Hits are counted on the scoreboard, not listed here. "Stance" lines are bot decisions; a Replay wouldn't store them.</span></div>
     <ul class="log" id="log"></ul>
   </section>
 
@@ -226,10 +230,10 @@ tr.chosen td:first-child { box-shadow: inset 3px 0 0 var(--team); font-weight: 6
   <section class="panel" aria-label="What to judge">
     <h2>What to judge</h2>
     <ol class="questions">
-      <li>Does recalling now feel like a real choice, with lost Last Hits and tower damage as the price?</li>
-      <li>Do the trades, Charges and Flash Freezes read like a person deciding, including the mistakes?</li>
-      <li>Is the brush play (lurking, avoiding it, face-checking it) believable?</li>
-      <li>Does each rating, especially the new Laning rating, show up in the scoreboard and not just in the score tables?</li>
+      <li>Do the bots now look like they have intentions, farming first and trading on purpose, without twitching between plans?</li>
+      <li>Does the matchup show: Lumen bullying from range, and Warden waiting for Blink to go down before going in?</li>
+      <li>Do bots use the brush to drop minion aggro after a trade?</li>
+      <li>Are the Stance names and reasons enough to follow what each bot is thinking?</li>
     </ol>
   </section>
 </div>
@@ -514,7 +518,7 @@ const LaneDuel = (() => {
     const M = MINION[m.kind], foe = enemyOf(m.team), eh = s.heroes[foe], t = s.tick;
     m.attackCd = Math.max(0, m.attackCd - 1);
     let target = null;
-    if (eh.alive && dist(eh, m) <= MINION.aggro && t - eh.lastHitHeroTick <= TOWER.aggroWindow) target = eh; // punish hitting our hero
+    if (eh.alive && dist(eh, m) <= MINION.aggro && t - eh.lastHitHeroTick <= TOWER.aggroWindow && teamCanSee(s, m.team, eh.x, eh.y)) target = eh; // punish hitting our hero, if they can see you
     if (!target && m.targetId) {
       const c = unitById(s, m.targetId);
       if (c && c.alive && dist(c, m) <= MINION.aggro * 1.2 && (c.type !== 'hero' || teamCanSee(s, m.team, c.x, c.y))) target = c;
@@ -541,7 +545,7 @@ const LaneDuel = (() => {
     tw.cd = Math.max(0, tw.cd - 1);
     if (tw.cd > 0) return;
     const foe = enemyOf(team), eh = s.heroes[foe], t = s.tick;
-    const inR = u => u && u.alive && u.team === foe && dist(u, tw) <= TOWER.range + radiusOf(u);
+    const inR = u => u && u.alive && u.team === foe && dist(u, tw) <= TOWER.range + radiusOf(u) && (u.type !== 'hero' || teamCanSee(s, team, u.x, u.y));
     let target = null;
     if (inR(eh) && t - eh.lastHitHeroTick <= TOWER.aggroWindow) target = eh; // hit our hero under our tower: tower switches to you
     if (!target && tw.targetId && inR(unitById(s, tw.targetId))) target = unitById(s, tw.targetId);
@@ -672,7 +676,8 @@ const LaneDuel = (() => {
         allies.push({ id: h.id, name: h.name, kit: h.kit, x: h.x, y: h.y, hp: h.hp, maxHp: h.maxHp, shield: h.shield, level: h.level, xp: h.xp,
           gold: h.gold, upgrades: h.upgrades, alive: h.alive, respawnInTicks: h.alive ? 0 : h.respawnAt - s.tick,
           cooldowns: { attack: h.attackCd, ...cds }, casting: h.casting ? h.casting.key : null, dashing: !!h.dash, recalling: h.recallUntil !== null,
-          slowed: s.tick < h.slowUntil, stunned: s.tick < h.stunUntil, inBrush: brushAt(h.x, h.y), lastHits: h.lastHits, kills: h.kills, deaths: h.deaths });
+          slowed: s.tick < h.slowUntil, stunned: s.tick < h.stunUntil, inBrush: brushAt(h.x, h.y), lastHits: h.lastHits, kills: h.kills, deaths: h.deaths,
+          aggro: { minions: s.minions.filter(m => m.alive && m.team !== team && m.targetId === h.id).length, tower: s.towers[enemyOf(team)].targetId === h.id } });
       } else {
         scoreboard.push({ id: h.id, name: h.name, kit: h.kit, alive: h.alive, respawnInTicks: h.alive ? 0 : h.respawnAt - s.tick, level: h.level, upgrades: h.upgrades, kills: h.kills, deaths: h.deaths, lastHits: h.lastHits });
         if (unitVisibleTo(s, team, h)) enemies.push({ id: h.id, name: h.name, kit: h.kit, x: h.x, y: h.y, hp: h.hp, maxHp: h.maxHp, shield: h.shield, level: h.level,
@@ -693,10 +698,23 @@ const LaneDuel = (() => {
   }
 
   // ---------- ai: sees only observations; ratings live here ----------
+  // Two layers (ADR-0013): a Stance held for seconds, and Actions picked 10x a second inside it.
   const AI = (() => {
-    const LABELS = { dodge: 'Dodge', lastHit: 'Last-hit a minion', prepLastHit: 'Line up a Last Hit', poke: 'Poke', engage: 'Engage with crowd control',
-      trade: 'Trade auto attacks', cleave: 'Cleave', shield: 'Shield up', kill: 'Go for the kill', hold: 'Hold lane spacing', lurk: 'Lurk in the brush',
-      faceCheck: 'Check the brush', retreat: 'Back off', recall: 'Recall to base', heal: 'Heal and shop at base', pushTower: 'Hit the tower' };
+    const LABELS = { dodge: 'Dodge', lastHit: 'Last-hit a minion', prepLastHit: 'Line up a Last Hit', clearWave: 'Push the wave', poke: 'Poke', engage: 'Engage with crowd control',
+      trade: 'Trade auto attacks', cleave: 'Cleave', shield: 'Shield up', kill: 'Go for the kill', hold: 'Hold lane spacing', lurk: 'Wait in the brush',
+      faceCheck: 'Check the brush', dropAggro: 'Drop minion aggro', retreat: 'Back off', recall: 'Recall to base', walkBack: 'Walk back to recall safely',
+      heal: 'Heal and shop at base', pushTower: 'Hit the tower', freeHit: 'Free hit on them' };
+    // How each Stance weights the actions inside it. punish = extra weight on hitting an enemy who steps up to last-hit.
+    const STANCES = {
+      farmSafe: { label: 'Farm (safe)', spacing: 1.05, punish: 0, bias: { freeHit: -0.3, lastHit: 0.3, prepLastHit: 0.25, hold: 0.1, recall: 0.1, trade: -0.45, poke: -0.25, engage: -0.5, kill: -0.1, lurk: -0.7, faceCheck: -0.4, clearWave: -0.15 } },
+      farmPunish: { label: 'Farm and punish', spacing: 0.85, punish: 0.35, bias: { freeHit: 0.25, lastHit: 0.3, prepLastHit: 0.2, trade: -0.05, poke: 0.3, engage: 0, lurk: -0.6, faceCheck: -0.3, clearWave: -0.1 } },
+      farmRespect: { label: 'Farm and respect', spacing: 1.3, punish: 0.1, bias: { freeHit: -0.15, lastHit: 0.25, prepLastHit: 0.1, hold: 0.1, retreat: 0.05, trade: -0.35, poke: -0.1, engage: -0.3, lurk: -0.7, faceCheck: -0.5, clearWave: -0.1 } },
+      farmSpike: { label: 'Farm towards a spike', spacing: 1.0, punish: 0.15, bias: { lastHit: 0.35, prepLastHit: 0.3, trade: -0.2, engage: -0.25, poke: -0.05, lurk: -0.7, faceCheck: -0.4 } },
+      shoveReset: { label: 'Shove and reset', spacing: 1.0, punish: 0, bias: { freeHit: -0.2, clearWave: 0.45, cleave: 0.15, lastHit: 0.3, prepLastHit: -0.2, walkBack: 0.3, trade: -0.35, engage: -0.45, poke: -0.1, lurk: -0.9, faceCheck: -0.5 } },
+      allIn: { label: 'All-in', spacing: 0.5, punish: 0.2, bias: { freeHit: 0.3, kill: 0.4, engage: 0.4, trade: 0.45, cleave: 0.3, poke: 0.3, shield: 0.2, lastHit: -0.6, prepLastHit: -0.8, clearWave: -0.6, hold: -0.5, retreat: -0.5, recall: -1, walkBack: -1, lurk: -1, dropAggro: -0.8, pushTower: -0.9, faceCheck: -0.6 } },
+      disengage: { label: 'Disengage', spacing: 1.4, punish: 0, bias: { freeHit: -0.6, dropAggro: 0.5, retreat: 0.35, recall: 0.3, walkBack: 0.3, trade: -0.6, engage: -0.6, kill: -0.2, poke: -0.2, lastHit: -0.2, prepLastHit: -0.5, clearWave: -0.5, lurk: -0.4 } },
+      lurk: { label: 'Lurk', spacing: 1.0, punish: 0.1, bias: { lurk: 0.55, engage: 0.3, kill: 0.2, trade: 0.1, lastHit: -0.2, prepLastHit: -0.4, clearWave: -0.4, hold: -0.3 } },
+    };
     const r01 = v => (v - 1) / 19;
     function rand(b) {
       b.rng = (b.rng + 0x6d2b79f5) >>> 0;
@@ -709,7 +727,9 @@ const LaneDuel = (() => {
     const reactionDelayTicks = r => Math.round(12 - 10 * r01(r)); // 0.6 s at 1, 0.1 s at 20
     function createBrain(team, ratings, seed) {
       return { team, ratings: { ...ratings }, rng: seed >>> 0, buffer: [], lastPerceivedTick: -1,
-        memory: { enemies: {}, projectiles: [], zones: [], minions: [], perceivedAt: -1 }, current: null, pausedUntil: -1, drift: 0, lastHp: null, lurkSince: null, lurkBlockedUntil: -1 };
+        memory: { enemies: {}, projectiles: [], zones: [], minions: [], perceivedAt: -1 },
+        stance: null, stanceSince: 0, stanceMinUntil: 0, stanceNextCheck: 0, stanceReason: '', stanceTable: [], bailHp: 0.2,
+        currentAction: null, pausedUntil: -1, drift: 0, hpHist: [], lurkSince: null, lurkBlockedUntil: -1, prevTheirEscapeReady: null };
     }
     // A match or scenario starts with each bot already knowing what its team can see; reaction delay applies to changes after that.
     function prime(bIn, obs) { const b = structuredClone(bIn); remember(b, obs); b.lastPerceivedTick = obs.tick; b.buffer.push(obs); return b; }
@@ -761,6 +781,17 @@ const LaneDuel = (() => {
       for (const k of KEYS) if (isReady(k)) d += abilityDamage(kit, k, level, upgrades);
       return d;
     }
+    // Matchup Profile: read straight from the kit's Ability Types and Effects.
+    function profile(kit) {
+      const K = KITS[kit]; let poke = K.attack.range, escape = null, engage = null;
+      for (const k of KEYS) {
+        const ab = K.abilities[k];
+        if (hasEffect(ab, 'Damage') && (ab.type === 'Projectile' || ab.type === 'Ground Circle')) poke = Math.max(poke, ab.range);
+        if (ab.type === 'Blink' || (ab.type === 'Dash' && !hasEffect(ab, 'Stun'))) escape = k;
+        if (hasEffect(ab, 'Stun')) engage = { key: k, reach: ab.type === 'Dash' ? ab.distance + HERO.radius * 2 : ab.range };
+      }
+      return { range: K.attack.range, melee: K.attack.range < 200, poke, escape, engage };
+    }
 
     function decide(bIn, obs) {
       const b = structuredClone(bIn);
@@ -773,12 +804,15 @@ const LaneDuel = (() => {
         b.lastPerceivedTick = Math.max(b.lastPerceivedTick, perceived.tick);
       }
       const self = obs.allies[0]; // own body: known instantly
+      b.hpHist.push({ t: obs.tick, hp: self.hp }); while (b.hpHist.length && b.hpHist[0].t < obs.tick - 20) b.hpHist.shift();
+      const stanceInfo = () => ({ stance: b.stance, stanceLabel: b.stance ? STANCES[b.stance].label : null, stanceSince: b.stanceSince, stanceReason: b.stanceReason, stanceTable: b.stanceTable });
       const head = { tick: obs.tick, perceivedTick: b.lastPerceivedTick, delayTicks: delay, options: [], chosen: null, chosenLabel: '', status: null };
-      if (!self.alive) { b.current = null; return { brain: b, intents: {}, reasoning: { ...head, status: `Dead, respawning in ${secs(self.respawnInTicks)}` } }; }
-      if (self.stunned) return { brain: b, intents: {}, reasoning: { ...head, status: 'Stunned: can\'t act' } };
-      if (obs.tick < b.pausedUntil) return { brain: b, intents: {}, reasoning: { ...head, status: `Following your order for ${secs(b.pausedUntil - obs.tick)} more` } };
+      if (!self.alive) { b.stance = null; b.currentAction = null; b.stanceTable = []; return { brain: b, intents: {}, reasoning: { ...head, ...stanceInfo(), status: `Dead, respawning in ${secs(self.respawnInTicks)}` } }; }
+      if (self.stunned) return { brain: b, intents: {}, reasoning: { ...head, ...stanceInfo(), status: 'Stunned: can\'t act' } };
+      if (obs.tick < b.pausedUntil) return { brain: b, intents: {}, reasoning: { ...head, ...stanceInfo(), status: `Following your order for ${secs(b.pausedUntil - obs.tick)} more` } };
       if (self.casting || self.dashing) return { brain: b, intents: {}, reasoning: null };
 
+      // ---------- what this player knows right now ----------
       const R = b.ratings, A = R.aggression / 20, P = r01(R.positioning), M = r01(R.mechanics), D = r01(R.decisionMaking), L = r01(R.laning);
       const K = KITS[self.kit], dir = b.team === 'blue' ? 1 : -1, mem = b.memory;
       const ownTower = obs.towers[b.team], enemyTower = obs.towers[enemyOf(b.team)];
@@ -797,8 +831,8 @@ const LaneDuel = (() => {
       const inTower = (tw, p) => tw.alive && dist(tw, p) <= TOWER.range;
       const enemyUnderTheirTower = known && inTower(enemyTower, e);
       const enemyUnderMyTower = known && inTower(ownTower, e);
-      const meUnderEnemyTower = inTower(enemyTower, self);
-      const towerOnMe = enemyTower.targetId === self.id;
+      const towerOnMe = self.aggro.tower;
+      const aggroMinions = self.aggro.minions;
       const myAuto = autoDamage(self.kit, self.level, self.upgrades);
       const myReach = threatRange(self.kit, ready);
       const EK = e ? KITS[e.kit] : null;
@@ -808,31 +842,124 @@ const LaneDuel = (() => {
       const eEhp = known ? e.hp + (e.shield || 0) : Infinity;
       const killable = visible && myBurst >= eEhp && d <= myReach;
       const danger = enemyAlive && known && (visible || age < 30) && d <= enemyReach + 80 && enemyBurst >= (self.hp + self.shield) * 0.85;
-      const diveCost = ((2.5 * TPS) / TOWER.cooldown) * TOWER.damageHero;
-      const diveOK = self.hp + self.shield > diveCost + enemyBurst * 0.5 - 120 * A;
+      const diveOK = self.hp + self.shield > ((2.5 * TPS) / TOWER.cooldown) * TOWER.damageHero + enemyBurst * 0.5 - 120 * A;
       const enemyMinionsNearMe = near(enemyMinions, self, MINION.aggro);
       const hidden = !!self.inBrush && !(visible && e.inBrush === self.inBrush);
-      const enemyEscapeReady = !!(e && KEYS.some(k => ['Blink'].includes(EK.abilities[k].type) && enemyReady(k)));
       const enemyDamageDown = e ? KEYS.filter(k => hasEffect(EK.abilities[k], 'Damage') && !enemyReady(k)).length : 0;
       const waveAtMyTower = near(enemyMinions, ownTower, TOWER.range + 40);
-      const enemyBusy = visible && e.attacking === 'minion'; // stepping up for a Last Hit opens a window
       const lostNearBrush = enemyAlive && known && !visible && age < 120 && brushDist(e, nearestBrush(e)) < 120;
+      const enemyBusy = visible && e.attacking === 'minion'; // stepping up for a Last Hit opens a window
+      const me = profile(self.kit), them = e ? profile(e.kit) : null;
+      const rangeAdv = them ? me.range - them.range : 0;
+      const myEngageReady = !!(me.engage && ready(me.engage.key));
+      const theirEngageReady = !!(them && them.engage && enemyReady(them.engage.key));
+      const theirEscapeReady = !!(them && them.escape && enemyReady(them.escape));
+      const ups = Math.floor(self.gold / HERO.upgradeCost);
+      const xpToNext = self.level < HERO.maxLevel ? HERO.xpToReach[self.level + 1] - self.xp : Infinity;
+      const levelLead = known ? self.level - (e.level || 1) : 0;
+      const atBase = dist(self, MAP.bases[b.team]) < HERO.fountainRadius;
+      // Recall safety: can they see me, and can they reach me before the channel ends?
+      const enemySpeed = e ? KITS[e.kit].speed : 0;
+      const seenByEnemy = !hidden && ((enemyTower.alive && dist(self, enemyTower) <= TOWER.vision) || enemyMinions.some(m => dist(m, self) <= MINION.vision)
+        || (enemyAlive && known && dist(self, e) <= HERO.vision + (visible ? 0 : (Math.min(age, 60) / TPS) * enemySpeed)));
+      const dEff = !known ? Infinity : visible ? d : Math.max(0, d - (Math.min(age, 100) / TPS) * enemySpeed);
+      const canReachMe = enemyAlive && known && Math.max(0, dEff - enemyReach) / enemySpeed < (HERO.recallTicks / TPS) * 0.9;
+      const recallSafe = near(enemyMinions, self, 400) === 0 && !(seenByEnemy && canReachMe);
+      const theirPokeReady = !!(e && KEYS.some(k => hasEffect(EK.abilities[k], 'Damage') && ['Projectile', 'Ground Circle'].includes(EK.abilities[k].type) && enemyReady(k)));
+      const wantBase = hpR < 0.6 || ups >= 2 || (ups >= 1 && hpR < 0.75);
+      // Fight maths: how long until I kill them vs how long until they kill me (my stun buys time; a ranged Hero kites a melee one)
+      const abDmg = (kit, lvl, upg, isReady) => KEYS.reduce((a, k) => a + (isReady(k) ? abilityDamage(kit, k, lvl, upg) : 0), 0);
+      const stunSecs = kitP => { if (!kitP || !kitP.engage) return 0; const st = KITS[kitP.kit].abilities[kitP.engage.key].effects.find(x => x.kind === 'Stun'); return st ? st.duration / TPS : 0; };
+      let tMe = Infinity, tThem = Infinity, winsFight = false;
+      if (visible && e) {
+        const kite = me.melee && !them.melee ? (e.stunned ? 1 : theirEscapeReady ? 0.4 : 0.75) : 1; // a stunned target can't kite or Blink
+        const myDps = (myAuto * TPS / K.attack.cooldown) * kite;
+        const theirDps = autoDamage(e.kit, e.level || 1, e.upgrades || 0) * TPS / EK.attack.cooldown;
+        const mine = abDmg(self.kit, self.level, self.upgrades, ready), theirs = abDmg(e.kit, e.level || 1, e.upgrades || 0, enemyReady);
+        tMe = mine >= eEhp ? 0 : (eEhp - mine) / myDps;
+        tThem = (theirs >= self.hp + self.shield ? 0 : (self.hp + self.shield - theirs) / theirDps) + (myEngageReady ? stunSecs({ kit: self.kit, ...me }) : 0);
+        winsFight = tMe < tThem * 0.8;
+      }
+
+      // ---------- Stance layer: re-checked about once a second, held at least 3 s unless something urgent happens ----------
+      const urgent = [];
+      const hp1sAgo = b.hpHist.length ? b.hpHist[0].hp : self.hp;
+      if (danger && hpR < 0.4 && !(b.stance === 'allIn' && killable)) urgent.push(['disengage', 'I could die here']); // not when the kill is right there
+      if (b.stance === 'allIn' && hpR < b.bailHp) urgent.push(['disengage', 'Past my bail-out point']);
+      if (hp1sAgo - self.hp > self.maxHp * 0.25 && b.stance !== 'allIn') urgent.push(['disengage', 'Took a big hit']);
+      if (towerOnMe && b.stance !== 'allIn') urgent.push(['disengage', 'Their tower is shooting me']);
+      if (aggroMinions >= 3 && b.stance !== 'allIn' && b.stance !== 'disengage') urgent.push(['disengage', `${aggroMinions} minions are hitting me`]);
+      if (visible && e.stunned && (killable || winsFight) && b.stance !== 'allIn') urgent.push(['allIn', `${e.name} is stunned${killable ? ' and killable' : ' and I win the fight'}`]);
+      if (them && them.escape && b.prevTheirEscapeReady && !theirEscapeReady && myEngageReady && visible && d <= me.engage.reach + 150) urgent.push(['allIn', `${e.name} just used ${EK.abilities[them.escape].name}`]);
+      b.prevTheirEscapeReady = theirEscapeReady;
+      if (b.stance === 'lurk' && b.lurkSince !== null && obs.tick - b.lurkSince > 100) { urgent.push(['farmSafe', 'Nobody came']); b.lurkBlockedUntil = obs.tick + 160; }
+      if (b.stance === 'shoveReset' && !wantBase) urgent.push(['farmSafe', 'Reset done']);
+      if (b.stance === 'allIn' && (!enemyAlive || (!visible && age > 20))) urgent.push(['farmSafe', enemyAlive ? 'Lost sight of them' : 'They are dead']);
+      if (b.stance === 'allIn' && visible && !killable && tThem < tMe) urgent.push(['disengage', 'I am losing this fight']);
+      // An All-in runs until it resolves (dead, lost, bail-out, losing); other Stances are re-voted on a timer
+      const due = b.stance === null || (b.stance !== 'allIn' && obs.tick >= b.stanceMinUntil && obs.tick >= b.stanceNextCheck);
+      if (urgent.length || due) {
+        const S = [];
+        const addS = (id, score, why) => S.push({ id, score, note: why.filter(Boolean).join(', ') || STANCES[id].label });
+        const farmBase = 0.45 + (enemyMinions.length ? 0.15 : -0.2);
+        addS('farmSafe', farmBase - 0.05 + (hpR < 0.5 ? 0.1 : 0) + (1 - A) * 0.1, ['Last Hits first, no fights']);
+        addS('farmPunish', farmBase + 0.05 + 0.25 * A + (rangeAdv > 150 ? 0.15 : 0) + 0.4 * (hpR - ehpR) + (them && them.engage && !theirEngageReady ? 0.15 : 0) + 0.1 * enemyDamageDown - (theirEngageReady && rangeAdv < 0 ? 0.2 : 0) + 0.1 * levelLead,
+          [rangeAdv > 150 ? 'I outrange them' : null, them && them.engage && !theirEngageReady ? `their ${EK.abilities[them.engage.key].name} is down` : null, enemyDamageDown ? 'their damage abilities are down' : null, levelLead > 0 ? 'I am a level up' : null, hpR > ehpR + 0.15 ? 'I have more health' : null]);
+        addS('farmRespect', farmBase - 0.1 + (theirEngageReady && enemyBurst >= 0.6 * (self.hp + self.shield) ? 0.35 : 0) + (rangeAdv < -150 && theirPokeReady ? 0.2 : 0) + (1 - A) * 0.15 - 0.1 * levelLead + (hpR < ehpR - 0.15 ? 0.15 : 0),
+          [theirEngageReady && enemyBurst >= 0.6 * (self.hp + self.shield) ? `their ${them && them.engage ? EK.abilities[them.engage.key].name : 'engage'} could start an all-in` : null, rangeAdv < -150 && theirPokeReady ? 'they outrange me and their poke is up' : null, hpR < ehpR - 0.15 ? 'I have less health' : null]);
+        if (xpToNext <= 60 && levelLead <= 0) addS('farmSpike', farmBase + 0.12, [`${Math.round(xpToNext)} XP from level ${self.level + 1}: get it, then play forward`]);
+        if (wantBase) addS('shoveReset', 0.55 + 1.5 * Math.max(0, 0.6 - hpR) + 0.15 * ups - (killable ? 0.3 : 0),
+          [hpR < 0.6 ? 'health is low' : null, ups ? `${ups * HERO.upgradeCost} gold to spend` : null, 'push the wave first so going home costs less']);
+        const inStartRange = (myEngageReady && d <= me.engage.reach + 60) || d <= K.attack.range + 50;
+        const allInOpp = visible && enemyAlive && (killable || (winsFight && inStartRange && !(me.melee && theirEscapeReady && !e.stunned)));
+        if (allInOpp) addS('allIn', 0.55 + 0.35 * A + (killable ? 0.35 : 0) + 0.6 * clamp((tThem - tMe) / Math.max(tThem, 0.1), 0, 1) + (rangeAdv < -150 && !theirEscapeReady ? 0.2 : 0) + 0.1 * levelLead - (enemyUnderTheirTower && !diveOK ? 0.7 * (1 - 0.5 * A) : 0) - (danger ? 0.25 : 0) - 0.03 * near(enemyMinions, e, MINION.aggro),
+          [killable ? 'I can kill them' : `I win the fight: about ${tMe.toFixed(1)} s to kill them vs ${tThem.toFixed(1)} s for them`, them && them.escape && !theirEscapeReady ? 'their escape is down' : null, enemyUnderTheirTower ? (diveOK ? 'worth the dive' : 'but they are under their tower') : null]);
+        addS('disengage', 0.1 + (aggroMinions >= 2 ? 0.25 + 0.08 * aggroMinions : 0) + (towerOnMe ? 0.6 : 0) + (danger ? 0.45 : 0) + (hpR < 0.35 ? 0.4 : 0) - 0.15 * A,
+          [aggroMinions >= 2 ? `${aggroMinions} minions on me` : null, towerOnMe ? 'tower on me' : null, danger ? 'they could kill me' : null, hpR < 0.35 ? 'very low health' : null]);
+        const myBrush = MAP.brush.filter(r => (brushCenter(r).x - MAP.width / 2) * dir < 0).reduce((best, r) => (dist(self, brushCenter(r)) < dist(self, brushCenter(best)) ? r : best),
+          MAP.brush.find(r => (brushCenter(r).x - MAP.width / 2) * dir < 0));
+        const ambush = hidden && myEngageReady && visible && d < 750; // already unseen in the brush and they're coming my way
+        if (enemyAlive && hpR > 0.55 && dist(self, brushCenter(myBrush)) < 520 && (obs.tick >= b.lurkBlockedUntil || ambush) && (me.melee || A > 0.6))
+          {
+            addS('lurk', 0.25 + 0.3 * A + (me.melee ? 0.15 : 0) + (myEngageReady ? 0.1 : -0.3) - (enemyMinions.length ? 0.15 : 0) - (waveAtMyTower ? 0.2 : 0) + (ambush ? 0.35 : 0),
+              [ambush ? `${e.name} can't see me and is coming closer` : 'set up an ambush or a brush trade', enemyMinions.length || ambush ? null : 'no wave to farm right now']); }
+        const sigma = 0.25 - 0.22 * D; // Decision-making: noise in the call, rolled once per choice
+        for (const o of S) {
+          o.label = STANCES[o.id].label; o.noise = gauss(b) * sigma; o.bonus = o.id === b.stance ? 0.15 : 0;
+          o.urgent = urgent.some(([id]) => id === o.id) ? (o.id === 'allIn' && visible && e.stunned && killable ? 0.9 : 0.5) : 0; // a stunned, killable target outranks every alarm
+          o.total = o.score + o.noise + o.bonus + o.urgent;
+        }
+        S.sort((x, y) => y.total - x.total);
+        const pick = S[0];
+        if (pick.id !== b.stance) {
+          b.stance = pick.id; b.stanceSince = obs.tick; b.stanceMinUntil = obs.tick + 60;
+          if (pick.id === 'allIn') b.bailHp = clamp(0.3 - 0.2 * A, 0.08, 0.3);
+          if (pick.id !== 'lurk') b.lurkSince = null;
+        }
+        b.stanceNextCheck = obs.tick + 20;
+        const urgentWhy = urgent.filter(([id]) => id === pick.id).map(([, w]) => w);
+        b.stanceReason = urgentWhy.length ? urgentWhy.join('; ') : pick.note;
+        b.stanceTable = S.map(({ id, label, score, noise, bonus, urgent: u, total, note }) => ({ id, label, score, noise, bonus, urgent: u, total, note }));
+      }
+      const ST = STANCES[b.stance];
+
+      // ---------- Action layer: concrete actions, weighted by the Stance, no decision noise ----------
+      const aimCC = (k, ab) => {
+        const travel = ab.type === 'Ground Circle' ? ((ab.windup || 0) + ab.delay) / TPS : ab.type === 'Dash' ? d / ((ab.distance / ab.ticks) * TPS) : 0;
+        const lead = (travel + lag) * M;
+        const n = ab.type === 'Ground Circle' ? gauss(b) * (1 - M) * 70 : 0;
+        return { kind: 'cast', key: k, x: e.x + e.vx * lead + n, y: e.y + e.vy * lead + n * 0.6 };
+      };
       const ccReach = ab => {
         if (ab.type !== 'Dash') return ab.range;
         const away = known && d > 0 ? Math.max(0, ((e.x - self.x) * e.vx + (e.y - self.y) * e.vy) / d) : 0;
         return ab.distance + HERO.radius * 2 - (M > 0.35 ? away * (ab.ticks / TPS) : 0);
       };
-      // Aim where the target will be: Mechanics sets how much of the lead a player gets right
-      const aimCC = (k, ab) => {
-        const travel = ab.type === 'Ground Circle' ? ((ab.windup || 0) + ab.delay) / TPS : ab.type === 'Dash' ? d / (ab.distance / ab.ticks * TPS) : 0;
-        const lead = (travel + lag) * M;
-        const n = ab.type === 'Ground Circle' ? gauss(b) * (1 - M) * 70 : 0;
-        return { kind: 'cast', key: k, x: e.x + e.vx * lead + n, y: e.y + e.vy * lead + n * 0.6 };
-      };
+      const punish = enemyBusy ? ST.punish : 0;
       const opts = [];
       const add = (id, score, note, intent) => opts.push({ id, label: LABELS[id], score, note, intent });
 
-      // --- Dodge: perceived bolts (extrapolated to now), Flash Freeze circles, visible wind-ups ---
+      // Dodge (always first-class, whatever the Stance)
       let threat = null;
       for (const p of mem.projectiles) {
         const sp = Math.hypot(p.vx, p.vy), ux = p.vx / sp, uy = p.vy / sp, ox = p.x + p.vx * lag, oy = p.y + p.vy * lag;
@@ -863,74 +990,84 @@ const LaneDuel = (() => {
         });
       }
 
-      // --- Last Hits: Laning sets how well the bot judges "my next hit kills it" ---
+      // Farming
       const reachNow = m => dist(self, m) - MINION[m.kind].radius <= K.attack.range + 25;
-      const judge = 1 + gauss(b) * (1 - L) * 0.3 + (1 - L) * 0.12; // poor Laning swings early and misjudges
+      const judge = 1 + gauss(b) * (1 - L) * 0.3 + (1 - L) * 0.12; // Laning: how well "my next hit kills it" is judged
       let lh = null;
       if (self.cooldowns.attack <= 1) for (const m of enemyMinions) if (reachNow(m) && m.hp <= myAuto * judge && (!lh || m.hp < lh.hp)) lh = m;
-      const riskCS = (danger ? 0.3 * P : 0);
-      if (lh) add('lastHit', 0.8 + 0.15 * L - riskCS, `Minion at ${Math.round(lh.hp)} HP; my hit does ${Math.round(myAuto)}`, () => ({ kind: 'attack', targetId: lh.id }));
+      const riskCS = danger ? 0.3 * P : 0;
+      if (lh) add('lastHit', 0.7 + 0.15 * L - riskCS, `Minion at ${Math.round(lh.hp)} HP; my hit does ${Math.round(myAuto)}`, () => ({ kind: 'attack', targetId: lh.id }));
       else {
         let cand = null;
         for (const m of enemyMinions) if (dist(self, m) < 700 && m.hp <= myAuto * 2.6 && (!cand || m.hp < cand.hp)) cand = m;
         if (cand) {
           const underTheirs = inTower(enemyTower, cand) && !towerOnMe;
-          add('prepLastHit', 0.36 + 0.18 * L - riskCS - (underTheirs ? 0.25 * P : 0), `Minion at ${Math.round(cand.hp)} HP will soon be killable${underTheirs ? ', but it is under their tower' : ''}`,
-            () => ({ kind: 'move', ...clampToMap({ x: cand.x - dir * K.attack.range * 0.85, y: cand.y + (self.y - cand.y) * 0.3 }) }));
+          const spot = clampToMap({ x: cand.x - dir * K.attack.range * 0.85, y: cand.y + (self.y - cand.y) * 0.3 });
+          const linedUp = dist(self, cand) - MINION[cand.kind].radius <= K.attack.range + (b.currentAction === 'prepLastHit' ? 70 : 25); // already in range (with a little stickiness)
+          add('prepLastHit', 0.45 + 0.15 * L - riskCS - (underTheirs ? 0.25 * P : 0) - (linedUp ? 0.12 : 0), `Minion at ${Math.round(cand.hp)} HP will soon be killable${linedUp ? '; I am already lined up' : ''}${underTheirs ? ', but it is under their tower' : ''}`,
+            () => ({ kind: 'move', ...clampToMap({ x: spot.x, y: spot.y + 18 * Math.sin(obs.tick / 9) }) }));
         }
       }
+      if (enemyMinions.length) {
+        const tgt = enemyMinions.reduce((a, m) => (dist(self, m) < dist(self, a) ? m : a));
+        add('clearWave', 0.3, `${enemyMinions.length} enemy minions to clear`, () => ({ kind: 'attack', targetId: tgt.id }));
+      }
 
-      // --- Abilities, read generically from Ability Type + Effects ---
+      // Abilities, read generically from Ability Type + Effects
       for (const k of KEYS) {
         const ab = K.abilities[k];
         if (!ready(k)) continue;
         if (ab.type === 'Projectile' && hasEffect(ab, 'Damage') && visible && d <= ab.range * 0.95) {
           const blocked = enemyMinions.some(m => dist(self, m) < d && segDist(self, e, m) < ab.width + MINION[m.kind].radius);
           if (blocked && M > 0.35) add('poke', -0.2, `${ab.name} would be blocked by minions, so hold it`, () => ({ kind: 'hold' }));
-          else add('poke', 0.42 + 0.3 * A + 0.08 * enemyDamageDown + (enemyBusy ? 0.15 : 0) + (e.stunned ? 0.3 : 0) + (e.slowed ? 0.08 : 0), `${ab.name} is in range${enemyBusy ? ', and they are busy last-hitting' : ''}${blocked ? ' (minions in the way, not checked)' : ''}`, () => {
+          else add('poke', 0.35 + 0.08 * enemyDamageDown + punish + (e.stunned ? 0.3 : 0) + (e.slowed ? 0.08 : 0), `${ab.name} is in range${enemyBusy ? ', and they are busy last-hitting' : ''}${blocked ? ' (minions in the way, not checked)' : ''}`, () => {
             const travel = d / ab.speed + (ab.windup || 0) / TPS + lag;
             const ax = e.x + e.vx * travel * M, ay = e.y + e.vy * travel * M;
             const ang = gauss(b) * (0.24 - 0.22 * M), c = Math.cos(ang), sn = Math.sin(ang), dx = ax - self.x, dy = ay - self.y;
             return { kind: 'cast', key: k, x: self.x + dx * c - dy * sn, y: self.y + dx * sn + dy * c };
           });
         }
-        if (hasEffect(ab, 'Stun') && visible) {
-          if (d <= ccReach(ab)) {
-            const diving = enemyUnderTheirTower ? (diveOK && killable ? -0.1 : 0.75 * (1 - 0.5 * A)) : 0;
-            const s = 0.3 + 0.45 * A + 0.6 * (hpR - ehpR) + (enemyBusy ? 0.2 : 0) + (hidden ? 0.25 : 0) + (enemyUnderMyTower ? 0.3 : 0) + (killable ? 0.4 : 0) + (!enemyEscapeReady ? 0.15 : 0)
-              + 0.08 * ((self.level) - (e.level || 1)) - diving - 0.03 * near(enemyMinions, e, MINION.aggro) - (danger ? 0.2 : 0);
-            const why = [enemyBusy ? 'they are busy last-hitting' : null, hidden ? 'they can\'t see me' : null, killable ? 'it could be a kill' : null, !enemyEscapeReady && EK.abilities.E.type === 'Blink' ? 'their Blink is down' : null,
-              enemyUnderMyTower ? 'they are under my tower' : null, enemyUnderTheirTower ? (diving < 0 ? 'worth the tower dive' : 'they are under their tower') : null].filter(Boolean).join(', ');
-            add('engage', s, `${ab.name} in range${why ? ': ' + why : ''}`, () => aimCC(k, ab));
-          }
+        if (hasEffect(ab, 'Stun') && visible && d <= ccReach(ab)) {
+          const diving = enemyUnderTheirTower ? (diveOK && killable ? -0.1 : 0.75 * (1 - 0.5 * A)) : 0;
+          const s = 0.25 + 0.6 * (hpR - ehpR) + punish + (hidden ? 0.25 : 0) + (enemyUnderMyTower ? 0.3 : 0) + (killable ? 0.4 : 0) + (them && them.escape && !theirEscapeReady ? 0.15 : 0)
+            + 0.08 * levelLead - diving - 0.03 * near(enemyMinions, e, MINION.aggro) - (danger ? 0.2 : 0);
+          const why = [enemyBusy ? 'they are busy last-hitting' : null, hidden ? 'they can\'t see me' : null, killable ? 'it could be a kill' : null,
+            them && them.escape && !theirEscapeReady ? `their ${EK.abilities[them.escape].name} is down` : null, enemyUnderMyTower ? 'they are under my tower' : null,
+            enemyUnderTheirTower ? (diving < 0 ? 'worth the tower dive' : 'they are under their tower') : null].filter(Boolean).join(', ');
+          add('engage', s, `${ab.name} in range${why ? ': ' + why : ''}`, () => aimCC(k, ab));
         }
         if (ab.type === 'Cone') {
-          if (visible && d <= ab.range + HERO.radius) add('cleave', 0.6 + 0.3 * A + (e.stunned ? 0.2 : 0) - (enemyUnderTheirTower && !diveOK ? 0.5 : 0), `${e.name} is in reach`, () => ({ kind: 'cast', key: k, x: e.x, y: e.y }));
+          if (visible && d <= ab.range + HERO.radius) add('cleave', 0.55 + (e.stunned ? 0.2 : 0) + punish - (enemyUnderTheirTower && !diveOK ? 0.5 : 0), `${e.name} is in reach`, () => ({ kind: 'cast', key: k, x: e.x, y: e.y }));
           else {
             const close = enemyMinions.filter(m => dist(m, self) <= ab.range);
-            if (close.length >= 3) add('cleave', 0.42 + 0.08 * (close.length - 3), `${close.length} minions in reach: clear the wave`, () => {
+            if (close.length >= 3) add('cleave', 0.3 + 0.08 * (close.length - 3), `${close.length} minions in reach: clear the wave`, () => {
               const cx = close.reduce((a, m) => a + m.x, 0) / close.length, cy = close.reduce((a, m) => a + m.y, 0) / close.length;
               return { kind: 'cast', key: k, x: cx, y: cy };
             });
           }
         }
         if (ab.type === 'Self' && hasEffect(ab, 'Shield')) {
-          const hurt = b.lastHp !== null && b.lastHp - self.hp > 12;
-          if ((hurt && ((visible && d < 500) || towerOnMe)) || (visible && e.windingUp && d < 700)) add('shield', 0.9, hurt ? 'Taking damage' : `${e.name} is casting at me`, () => ({ kind: 'cast', key: k, x: self.x, y: self.y }));
+          const hurt = hp1sAgo - self.hp > 30;
+          if ((hurt && ((visible && d < 500) || towerOnMe || aggroMinions >= 2)) || (visible && e.windingUp && d < 700)) add('shield', 0.9, hurt ? 'Taking damage' : `${e.name} is casting at me`, () => ({ kind: 'cast', key: k, x: self.x, y: self.y }));
         }
       }
 
-      // --- Fighting with auto attacks ---
-      if (visible && d <= K.attack.range + 160) {
-        const s = 0.28 + 0.3 * A + 0.5 * (hpR - ehpR) + (enemyBusy ? 0.18 : 0) + (e.stunned ? 0.35 : 0) + (e.slowed ? 0.1 : 0) + 0.12 * enemyDamageDown - 0.05 * enemyMinionsNearMe
-          - (enemyUnderTheirTower ? 0.6 : 0) + (enemyUnderMyTower ? 0.25 : 0) + 0.06 * (self.level - (e.level || 1));
-        const why = [enemyBusy ? 'they are busy last-hitting' : null, e.stunned ? 'they are stunned' : null, enemyDamageDown ? 'their damage abilities are down' : null, enemyMinionsNearMe > 1 ? `${enemyMinionsNearMe} enemy minions would turn on me` : null,
-          enemyUnderTheirTower ? 'they are under their tower' : null].filter(Boolean).join(', ');
+      // Free hit: they're already in my range, my attack is ready and no Last Hit is due, so hit them and go back to the wave
+      if (visible && d <= K.attack.range && self.cooldowns.attack === 0 && !lh && !enemyUnderTheirTower) {
+        add('freeHit', 0.45 + punish * 0.5 - 0.05 * enemyMinionsNearMe + (them && them.engage && !theirEngageReady ? 0.1 : 0),
+          `${e.name} is in my range and no Last Hit is due${enemyMinionsNearMe > 1 ? `; ${enemyMinionsNearMe} enemy minions may turn on me` : ''}`, () => ({ kind: 'attack', targetId: e.id }));
+      }
+      // Fighting with auto attacks
+      if (visible && (d <= K.attack.range + 160 || b.stance === 'allIn')) { // in an All-in, chase them down
+        const s = 0.25 + 0.5 * (hpR - ehpR) + punish + (e.stunned ? 0.35 : 0) + (e.slowed ? 0.1 : 0) + 0.1 * enemyDamageDown - 0.06 * enemyMinionsNearMe
+          - (enemyUnderTheirTower ? 0.6 : 0) + (enemyUnderMyTower ? 0.25 : 0) + 0.06 * levelLead;
+        const why = [enemyBusy ? 'they are busy last-hitting' : null, them && them.engage && !theirEngageReady ? `their ${EK.abilities[them.engage.key].name} is down` : null, e.stunned ? 'they are stunned' : null, enemyDamageDown ? 'their damage abilities are down' : null,
+          enemyMinionsNearMe > 1 ? `${enemyMinionsNearMe} enemy minions would turn on me` : null, enemyUnderTheirTower ? 'they are under their tower' : null].filter(Boolean).join(', ');
         add('trade', s, why || 'Even trade', () => ({ kind: 'attack', targetId: e.id }));
       }
       if (killable) {
         const finishing = e.stunned; // they can't escape right now: commit
-        add('kill', 0.95 + 0.3 * A + (finishing ? 0.3 : 0) - (enemyUnderTheirTower && !diveOK && !finishing ? 0.8 : 0) - (danger ? 0.15 : 0),
+        add('kill', 0.9 + (finishing ? 0.3 : 0) - (enemyUnderTheirTower && !diveOK && !finishing ? 0.8 : 0) - (danger ? 0.15 : 0),
           `My burst ~${Math.round(myBurst)} vs their ~${Math.round(eEhp)} HP${finishing ? ', and they are stunned' : enemyUnderTheirTower ? (diveOK ? ', worth diving their tower' : ', but their tower would kill me') : ''}`, () => {
             for (const k of KEYS) { const ab = K.abilities[k]; if (ready(k) && hasEffect(ab, 'Stun') && d <= ccReach(ab)) return aimCC(k, ab); }
             for (const k of KEYS) { const ab = K.abilities[k]; if (ready(k) && ab.type === 'Projectile' && d <= ab.range) return { kind: 'cast', key: k, x: e.x, y: e.y }; }
@@ -939,16 +1076,15 @@ const LaneDuel = (() => {
           });
       }
 
-      // --- Positioning ---
-      add('hold', 0.4, known && enemyAlive && age < 60 ? `Stay about ${Math.round(Math.max(150, enemyReach * (0.5 + 0.45 * P) - 60))} from ${e.name}` : 'Stand behind my wave', () => {
+      // Positioning
+      const csWaiting = opts.some(o => o.id === 'prepLastHit' && /lined up/.test(o.note));
+      const keepDist = Math.max(150, (enemyReach * (0.5 + 0.45 * P) - 60) * (me.melee ? 0.72 : 1) * ST.spacing);
+      add('hold', 0.4 - (csWaiting ? 0.15 : 0), csWaiting ? 'Waiting on a Last Hit right here' : known && enemyAlive && age < 60 ? `Stay about ${Math.round(keepDist)} from ${e.name}` : 'Stand behind my wave', () => {
         b.drift = b.drift * 0.96 + gauss(b) * 0.06;
         const front = ownMinions.length ? ownMinions.reduce((a, m) => ((m.x - a.x) * dir > 0 ? m : a)) : null;
         let x = front ? front.x - dir * 90 : ownTower.x + dir * 260;
         let y = MAP.laneY + 30 * Math.sin(obs.tick / 41);
-        if (known && enemyAlive && age < 60) {
-          const keep = Math.max(150, (enemyReach * (0.5 + 0.45 * P) - 60) * (K.attack.range < 200 ? 0.72 : 1)) + b.drift * (1 - P) * 250;
-          x = dir > 0 ? Math.min(x, e.x - keep) : Math.max(x, e.x + keep);
-        }
+        if (known && enemyAlive && age < 60) { const keep = keepDist + b.drift * (1 - P) * 250; x = dir > 0 ? Math.min(x, e.x - keep) : Math.max(x, e.x + keep); }
         if (lostNearBrush && P > 0.3) {
           const br = nearestBrush(e);
           y = br.y < MAP.height / 2 ? MAP.laneY + 70 * P : MAP.laneY - 70 * P;
@@ -961,19 +1097,19 @@ const LaneDuel = (() => {
         const br = MAP.brush.filter(r => (brushCenter(r).x - MAP.width / 2) * dir < 0).reduce((best, r) => (dist(self, brushCenter(r)) < dist(self, brushCenter(best)) ? r : best),
           MAP.brush.find(r => (brushCenter(r).x - MAP.width / 2) * dir < 0));
         const bc = brushCenter(br);
-        const lurkTime = b.lurkSince === null ? 0 : obs.tick - b.lurkSince;
-        if (lurkTime > 100) { b.lurkBlockedUntil = obs.tick + 300; b.lurkSince = null; }
-        if (enemyAlive && hpR > 0.55 && dist(self, bc) < 520 && obs.tick >= b.lurkBlockedUntil) {
-          const stunReady = KEYS.some(k => ready(k) && hasEffect(K.abilities[k], 'Stun'));
-          const s = 0.05 + 0.35 * A + (K.attack.range < 200 ? 0.15 : 0) + (stunReady ? 0.1 : -0.2) - (waveAtMyTower ? 0.25 * P : 0) - (lurkTime > 100 ? 0.35 : 0) - (lh ? 0.15 : 0) - (enemyMinions.length ? 0.08 : 0);
-          add('lurk', s, self.inBrush === br.id ? `Waiting unseen for ${secs(lurkTime)}` : 'Slip into the brush to set up an ambush', () => ({ kind: 'move', x: bc.x, y: bc.y }));
-        }
+        if (dist(self, bc) < 600) add('lurk', 0.3, self.inBrush === br.id ? `Waiting unseen for ${b.lurkSince === null ? '0.0 s' : secs(obs.tick - b.lurkSince)}` : 'Slip into the brush', () => ({ kind: 'move', x: bc.x, y: bc.y }));
       }
-      if (lostNearBrush) add('faceCheck', 0.3 + 0.35 * A - 0.45 * P, `Lost ${e.name} near the brush ${secs(age)} ago`, () => ({ kind: 'move', x: e.x, y: e.y }));
-      {
-        const s = 1.1 * (1 - hpR) - 0.25 * A - 0.2 + (danger ? 0.45 : 0) + (towerOnMe ? (killable && e.stunned ? 0.15 : 0.7) : 0);
-        const why = towerOnMe ? 'Their tower is shooting me' : danger ? `${e.name} could kill me from here` : hpR < 0.5 ? 'Health is low' : 'No reason to back off';
-        add('retreat', s, why, () => {
+      if (lostNearBrush) add('faceCheck', 0.3 + 0.2 * A - 0.45 * P, `Lost ${e.name} near the brush ${secs(age)} ago`, () => ({ kind: 'move', x: e.x, y: e.y }));
+      if (aggroMinions >= 1 || towerOnMe) {
+        add('dropAggro', 0.3 + 0.1 * aggroMinions + (towerOnMe ? 0.3 : 0), `${towerOnMe ? 'Their tower' : `${aggroMinions} minion${aggroMinions > 1 ? 's' : ''}`} hitting me`, () => {
+          const safeBrush = MAP.brush.filter(r => !inTower(enemyTower, brushCenter(r)) && dist(brushCenter(r), enemyTower) > TOWER.range + 60 && !(visible && e.inBrush === r.id));
+          const br = safeBrush.length ? safeBrush.reduce((a, r) => (brushDist(self, r) < brushDist(self, a) ? r : a)) : null;
+          if (br && brushDist(self, br) < 320) { const bc = brushCenter(br); return { kind: 'move', x: bc.x, y: bc.y }; } // out of sight, out of mind
+          return { kind: 'move', ...clampToMap({ x: self.x - dir * 320, y: MAP.laneY }) };
+        });
+      }
+      add('retreat', 1.1 * (1 - hpR) - 0.2 + (danger ? 0.45 : 0) + (towerOnMe ? (killable && e.stunned ? 0.15 : 0.7) : 0),
+        towerOnMe ? 'Their tower is shooting me' : danger ? `${e.name} could kill me from here` : hpR < 0.5 ? 'Health is low' : 'No reason to back off', () => {
           const blinkKey = KEYS.find(k => ready(k) && K.abilities[k].type === 'Blink');
           if (danger && visible && d < 400 && blinkKey) return { kind: 'cast', key: blinkKey, x: self.x - dir * 300, y: self.y };
           if (P > 0.5 && visible && d < 450) {
@@ -982,38 +1118,34 @@ const LaneDuel = (() => {
           }
           return { kind: 'move', x: ownTower.x - dir * 60, y: ownTower.y };
         });
+      if (wantBase || hpR < 0.6 || ups >= 1) {
+        const pushedOut = enemyMinions.length === 0 || near(ownMinions, enemyTower, TOWER.range + 80) > 0;
+        const why = [hpR < 0.6 ? 'health is low' : null, ups ? `${ups * HERO.upgradeCost} gold to spend` : null, b.stance === 'shoveReset' && !pushedOut ? 'wave not pushed yet' : null].filter(Boolean).join('; ');
+        if (recallSafe) add('recall', 0.35 + 1.4 * Math.max(0, 0.6 - hpR) + 0.15 * ups + (self.recalling ? 0.6 : 0) - (lh ? 0.1 : 0) + (b.stance === 'shoveReset' ? (pushedOut ? 0.45 : -0.25) : 0),
+          `${why}${self.recalling ? '; already channelling' : ''}; nobody can stop it`, () => ({ kind: 'recall' }));
+        else add('walkBack', 0.3 + 1.2 * Math.max(0, 0.6 - hpR) + 0.1 * ups + (b.stance === 'shoveReset' && !pushedOut ? -0.2 : 0),
+          `${why}; ${near(enemyMinions, self, 400) ? 'enemy minions would interrupt a recall here' : `${e ? e.name : 'they'} could see and reach me`}, so walk back first`,
+          () => ({ kind: 'move', ...clampToMap({ x: self.x - dir * 600, y: MAP.laneY }) }));
       }
-      {
-        const ups = Math.floor(self.gold / HERO.upgradeCost);
-        if (hpR < 0.6 || ups >= 1) {
-          const minionsOnMe = near(enemyMinions, self, 300);
-          const safe = !danger && !minionsOnMe && (self.recalling || !enemyAlive || !known || (visible ? d > 850 || (inTower(ownTower, self) && d > 450) : age > 40 || d > 1000));
-          let s = (hpR < 0.6 ? 1.6 * (0.6 - hpR) : 0) + 0.16 * ups - 0.04 * waveAtMyTower - (lh ? 0.08 : 0) - 0.1;
-          if (!safe) s = Math.min(s, 0) - 0.3;
-          else if (self.recalling) s += 0.6; // once committed, people finish the recall unless threatened
-          const why = [hpR < 0.6 ? 'health is low' : null, ups ? `${ups * HERO.upgradeCost} gold to cash in` : null, waveAtMyTower ? `I'd lose ${waveAtMyTower} minions to my tower` : null, !safe ? (minionsOnMe ? 'enemy minions would interrupt it' : `${e.name} is too close to recall`) : null, safe && self.recalling ? 'already channelling' : null].filter(Boolean).join('; ');
-          add('recall', s, why, () => ({ kind: 'recall' }));
-        }
-      }
-      if (dist(self, MAP.bases[b.team]) < HERO.fountainRadius && hpR < 0.95) add('heal', 1.1, 'Topping up at base', () => ({ kind: 'hold' }));
+      if (atBase && hpR < 0.95) add('heal', 1.2, 'Topping up at base', () => ({ kind: 'hold' }));
       if (enemyTower.alive && dist(self, enemyTower) < 650) {
         const tanking = near(ownMinions, enemyTower, TOWER.range + 20);
         const away = !enemyAlive || (!visible && age > 60) || (visible && d > 900);
-        add('pushTower', tanking ? 0.45 + (away ? 0.35 : 0) + 0.1 * A - (towerOnMe ? 1 : 0) : -0.2,
+        add('pushTower', tanking ? 0.45 + (away ? 0.35 : 0) - (towerOnMe ? 1 : 0) : -0.2,
           tanking ? `${tanking} of my minions are tanking the tower${away ? ` and ${e.name} is away` : ''}` : 'No minions to tank the tower', () => ({ kind: 'attack', targetId: enemyTower.id }));
       }
 
-      const sigma = 0.3 - 0.28 * D;
-      for (const o of opts) { o.bonus = o.id === b.current ? 0.08 : 0; o.noise = gauss(b) * sigma; o.total = o.score + o.bonus + o.noise; }
+      const timerWindow = b.stance === 'farmPunish' && them && them.engage && !theirEngageReady; // their engage is down: step up and hit them
+      for (const o of opts) { o.stanceBias = (ST.bias[o.id] || 0) + (timerWindow && (o.id === 'trade' || o.id === 'poke') ? 0.25 : 0); o.bonus = o.id === b.currentAction ? 0.1 : 0; o.total = o.score + o.stanceBias + o.bonus; }
       opts.sort((x, y) => y.total - x.total);
       const pick = opts[0];
-      b.current = pick.id;
-      b.lastHp = self.hp;
-      b.lurkSince = pick.id === 'lurk' && self.inBrush ? (b.lurkSince === null ? obs.tick : b.lurkSince) : pick.id === 'lurk' ? b.lurkSince : null;
+      b.currentAction = pick.id;
+      if (b.stance === 'lurk' && self.inBrush && b.lurkSince === null) b.lurkSince = obs.tick;
       const intent = pick.intent();
-      return { brain: b, intents: { [self.id]: intent }, reasoning: { ...head, options: opts.map(({ intent: _, ...rest }) => rest), chosen: pick.id, chosenLabel: pick.label, sigma } };
+      return { brain: b, intents: { [self.id]: intent },
+        reasoning: { ...head, ...stanceInfo(), options: opts.map(({ intent: _, ...rest }) => rest), chosen: pick.id, chosenLabel: pick.label } };
     }
-    return { createBrain, decide, prime, pause, setRating, LABELS, reactionDelayTicks };
+    return { createBrain, decide, prime, pause, setRating, LABELS, STANCES, reactionDelayTicks };
   })();
 
   // ---------- runner: the match loop joining sim and AI ----------
@@ -1031,9 +1163,9 @@ const LaneDuel = (() => {
         const out = AI.decide(m.brains[team], obs);
         m.brains[team] = out.brain;
         if (out.reasoning) {
-          const prev = m.reasoning[team] && m.reasoning[team].chosen;
+          const prev = m.reasoning[team] && m.reasoning[team].stance;
           m.reasoning[team] = out.reasoning;
-          if (out.reasoning.chosen && out.reasoning.chosen !== prev) m.aiLog.push({ tick: m.sim.tick, team, kind: 'ai', text: `${m.sim.heroes[team].name} switches plan: ${out.reasoning.chosenLabel}` });
+          if (out.reasoning.stance && out.reasoning.stance !== prev) m.aiLog.push({ tick: m.sim.tick, team, kind: 'ai', text: `${m.sim.heroes[team].name}: ${out.reasoning.stanceLabel} (${out.reasoning.stanceReason})` });
         }
         for (const [heroId, intent] of Object.entries(out.intents)) m.sim = setIntent(m.sim, team, heroId, intent).sim;
       }
@@ -1049,7 +1181,7 @@ const LaneDuel = (() => {
   function setRating(mIn, team, key, value) { return { ...mIn, brains: { ...mIn.brains, [team]: AI.setRating(mIn.brains[team], key, value) } }; }
 
   return { TICKS_PER_SECOND, DECISION_EVERY_TICKS, MAP, KITS, HERO, TOWER, MINION, KEYS, createMatch, advance, giveOrder, setRating, observe,
-    visibleTo: teamCanSee, unitVisibleTo, brushAt, enemyOf, lanePriority, autoDamage, LABELS: AI.LABELS, reactionDelayTicks: AI.reactionDelayTicks };
+    visibleTo: teamCanSee, unitVisibleTo, brushAt, enemyOf, lanePriority, autoDamage, LABELS: AI.LABELS, STANCES: AI.STANCES, reactionDelayTicks: AI.reactionDelayTicks };
 })();
 </script>
 
@@ -1065,9 +1197,9 @@ const LaneDuel = (() => {
     ['mechanics', 'Mechanics', 'Aim on skillshots and Flash Freeze; checks for minions blocking a bolt'],
     ['reaction', 'Reaction', 'How old the information it acts on is'],
     ['positioning', 'Positioning', 'Spacing, respecting towers and brush, not greedy for Last Hits in danger'],
-    ['decisionMaking', 'Decision-making', 'How much noise goes into choosing a plan'],
+    ['decisionMaking', 'Decision-making', 'How good its Stance calls are (noise is rolled once per call)'],
     ['laning', 'Laning', 'Judging when a hit will land the Last Hit'],
-    ['aggression', 'Aggression', 'Personality: how eagerly it trades, lurks, dives and chases'],
+    ['aggression', 'Aggression', 'Personality: how readily it picks punish, all-in and lurk Stances, and how deep it dives'],
   ];
   const rt = (mechanics, reaction, positioning, decisionMaking, laning, aggression) => ({ mechanics, reaction, positioning, decisionMaking, laning, aggression });
   const even = () => rt(12, 12, 12, 12, 12, 10);
@@ -1081,21 +1213,21 @@ const LaneDuel = (() => {
       about: 'Kestrel plays Warden (melee), Magpie plays Lumen (ranged). Same ratings. Waves meet in the middle about 7 s in. Base is a 5 s walk from the middle, off-screen.',
       watch: 'Last Hits climb on the scoreboard. Lumen pokes from range and Warden looks for a Charge. When either leaves to heal, their opponent gets free Last Hits and tower damage.',
       steps: [['Watch 10 seconds', ['advance', 200]], ['Watch 20 seconds', ['advance', 400]], ['Watch 30 seconds', ['advance', 600]], ['Watch 30 more seconds', ['advance', 600]], ['See it through Magpie\'s eyes', ['view', 'red']]] },
-    { title: 'The price of going home', setup: { seed: 7, kits: { blue: 'warden', red: 'lumen' }, positions: START, ratings: { blue: even(), red: even() } },
+    { title: 'The price of going home', setup: { seed: 11, kits: { blue: 'warden', red: 'lumen' }, positions: START, ratings: { blue: even(), red: even() } },
       about: 'The same match, but you make Magpie walk home at full health in the middle of the laning phase, to see what leaving costs.',
       watch: 'The "what changed" line after the next step shows the bill: Kestrel takes the waves alone while Magpie walks about 10 s there and back, so the Last Hit and gold gap opens up.',
-      steps: [['Watch 45 seconds', ['advance', 900]], ['Order Magpie: walk home now', ['order', 'red', 'home']], ['Watch 15 seconds', ['advance', 300]], ['Watch 10 seconds', ['advance', 200]]] },
-    { title: 'Ambush from the brush', setup: { seed: 4, kits: { blue: 'warden', red: 'lumen' }, positions: START, ratings: { blue: rt(13, 12, 12, 12, 12, 18), red: rt(12, 12, 3, 12, 12, 10) } },
+      steps: [['Watch 40 seconds', ['advance', 800]], ['Order Magpie: walk home now', ['order', 'red', 'home']], ['Watch 15 seconds', ['advance', 300]], ['Watch 10 seconds', ['advance', 200]]] },
+    { title: 'Ambush from the brush', setup: { seed: 39, kits: { blue: 'warden', red: 'lumen' }, positions: START, ratings: { blue: rt(13, 12, 12, 12, 12, 18), red: rt(12, 12, 3, 12, 12, 14) } },
       about: 'Kestrel\'s Warden is very aggressive. Magpie\'s Lumen has poor Positioning, so it doesn\'t respect brush.',
-      watch: 'Kestrel slips into the brush, then Charges out when Magpie walks past. In Magpie\'s eyes, Kestrel simply disappears. Check Kestrel\'s score table for "they can\'t see me".',
-      steps: [['Watch 8 seconds', ['advance', 160]], ['Order Kestrel into the brush', ['order', 'blue', 'brush']], ['See it through Magpie\'s eyes', ['view', 'red']], ['Watch 4 seconds', ['advance', 80]], ['Watch 6 seconds', ['advance', 120]], ['Show everything', ['view', 'truth']]] },
+      watch: 'Kestrel waits in the brush (Stance: Lurk) and Charges out when Magpie comes close. On this seed the Charge lands but Magpie survives. In Magpie\'s eyes, Kestrel simply disappears. Honest note: this is rare. In 120 test runs only one produced a Charge out of the brush, because a ranged bot seldom walks near the melee\'s brush.',
+      steps: [['Watch 45 seconds', ['advance', 900]], ['Order Kestrel into the brush', ['order', 'blue', 'brush']], ['See it through Magpie\'s eyes', ['view', 'red']], ['Watch 3.5 seconds', ['advance', 70]], ['Watch 6 seconds', ['advance', 120]], ['Show everything', ['view', 'truth']]] },
     { title: 'Diving the tower', setup: { seed: 12, kits: { blue: 'warden', red: 'lumen' }, positions: pos(1900, 250, 2200, 250), hp: { blue: 330, red: 150 }, cd: { red: { E: 200 } }, ratings: { blue: rt(14, 18, 12, 12, 12, 18), red: rt(12, 8, 12, 12, 12, 10) } },
       about: 'Magpie is nearly dead under their own tower, and their Blink was just used to get there. Kestrel is healthy enough to dive, but only just.',
       watch: 'A reckless Kestrel (Aggression 18) Charges under the tower for the kill and has to survive the tower shots. Then run it again with a cautious Kestrel and watch it back off instead.',
       steps: [['Watch 4 seconds', ['advance', 80]], ['Run it again with a cautious Kestrel (Aggression 4)', ['restart', { blue: { aggression: 4 } }]], ['Watch 4 seconds', ['advance', 80]]] },
     { title: 'Fast hands vs slow hands', setup: { seed: 3, kits: { blue: 'lumen', red: 'lumen' }, positions: START, ratings: { blue: rt(18, 20, 14, 14, 18, 12), red: rt(6, 3, 10, 10, 5, 12) } },
       about: 'A Lumen mirror. Kestrel is elite at Mechanics, Reaction and Laning. Magpie is poor at all three.',
-      watch: 'On this seed the Last Hit gap opens to about double by 2 minutes. Kestrel waits for minions to clear the line before throwing, and Magpie throws into them. Try other seeds with Reset free play: the gap is much smaller on some, which is worth judging.',
+      watch: 'On this seed Kestrel ends 2 minutes with about one and a half times Magpie\'s Last Hits. Kestrel waits for minions to clear the line before throwing, and Magpie throws into them. Try other seeds with Reset free play: the gap is much smaller on some, which is worth judging.',
       steps: [['Watch 30 seconds', ['advance', 600]], ['Watch 30 seconds', ['advance', 600]]] },
     { title: 'Orders the sim refuses', setup: { seed: 9, kits: { blue: 'lumen', red: 'warden' }, positions: pos(1300, 250, 3300, 250), ratings: { blue: even(), red: even() } },
       about: 'Magpie starts at their base, far outside anything Blue can see. Orders go through the same door whether a bot or you send them.',
@@ -1119,7 +1251,7 @@ const LaneDuel = (() => {
 
   function snap() {
     const h = match.sim.heroes, tw = match.sim.towers;
-    const one = t => ({ hp: Math.round(h[t].hp), alive: h[t].alive, cs: h[t].lastHits, gold: h[t].gold + h[t].upgrades * HERO.upgradeCost, kills: h[t].kills, level: h[t].level, tower: Math.round(tw[t].hp), plan: match.reasoning[t] && match.reasoning[t].chosenLabel });
+    const one = t => ({ hp: Math.round(h[t].hp), alive: h[t].alive, cs: h[t].lastHits, gold: h[t].gold + h[t].upgrades * HERO.upgradeCost, kills: h[t].kills, level: h[t].level, tower: Math.round(tw[t].hp), plan: match.reasoning[t] && match.reasoning[t].stanceLabel });
     return { tick: match.sim.tick, blue: one('blue'), red: one('red') };
   }
   function diff(a, b) {
@@ -1133,7 +1265,7 @@ const LaneDuel = (() => {
       if (y.gold !== x.gold) out.push(`${n} total gold ${x.gold} → ${y.gold}`);
       if (y.level !== x.level) out.push(`${n} level ${x.level} → ${y.level}`);
       if (y.tower !== x.tower) out.push(`${t === 'blue' ? 'Blue' : 'Red'} tower ${x.tower} → ${y.tower}`);
-      if (a.tick === b.tick && y.plan !== x.plan && y.plan) out.push(`${n}'s plan: ${y.plan}`);
+      if (a.tick === b.tick && y.plan !== x.plan && y.plan) out.push(`${n}'s Stance: ${y.plan}`);
     }
     return out.join(' · ');
   }
@@ -1273,7 +1405,8 @@ const LaneDuel = (() => {
           <dt>Last Hits</dt><dd class="num">${h.lastHits}</dd>
           ${abil}
           <dt>Current order</dt><dd>${esc(intentWords(h))}</dd>
-          <dt>Plan</dt><dd>${plan && plan.chosenLabel ? esc(plan.chosenLabel) : '<span class="note">None yet</span>'}</dd>
+          <dt>Stance</dt><dd>${plan && plan.stanceLabel ? `<strong>${esc(plan.stanceLabel)}</strong> <span class="note">for ${((s.tick - plan.stanceSince) / TPS).toFixed(1)} s</span>` : '<span class="note">None yet</span>'}</dd>
+          <dt>Action</dt><dd>${plan && plan.chosenLabel ? esc(plan.chosenLabel) : '<span class="note">None</span>'}</dd>
         </dl>
       </div>`;
   }
@@ -1298,12 +1431,21 @@ const LaneDuel = (() => {
       mem.push(`${foeName}'s cooldowns (counted from casts it saw): ${parts.join(' · ')}.`);
     }
     let table = '';
+    const sg = (v, dp = 2) => (v > 0 ? '+' : v < 0 ? '−' : '') + (v === 0 ? '–' : Math.abs(v).toFixed(dp));
+    if (rs && rs.stanceLabel) {
+      const st = rs.stanceTable || [];
+      table += `<div class="changed" style="border-left-color:var(--team)"><strong>Stance: ${esc(rs.stanceLabel)}</strong> · held ${((now - rs.stanceSince) / TPS).toFixed(1)} s<br><span class="note">Why: ${esc(rs.stanceReason || '')}</span></div>`;
+      if (st.length) table += `<details><summary class="note" style="cursor:pointer">How the Stance was chosen (last call)</summary><div class="table-box" style="margin-top:6px"><table>
+        <thead><tr><th>Stance</th><th class="r">Score</th><th class="r">Habit</th><th class="r">Urgent</th><th class="r">Noise</th><th class="r">Total</th></tr></thead>
+        <tbody>${st.map(o => `<tr class="${o.id === rs.stance ? 'chosen' : ''}"><td>${esc(o.label)}<span class="why">${esc(o.note)}</span></td><td class="r">${o.score.toFixed(2)}</td><td class="r">${sg(o.bonus)}</td><td class="r">${sg(o.urgent)}</td><td class="r">${sg(o.noise)}</td><td class="r"><strong>${o.total.toFixed(2)}</strong></td></tr>`).join('')}</tbody>
+      </table></div><p class="note">Decision-making ${b.ratings.decisionMaking} sets the noise. It is rolled once per call, and the Stance is held at least 3 s unless something urgent happens.</p></details>`;
+    }
     if (rs && rs.options && rs.options.length) {
-      table = `<div class="table-box"><table>
-        <thead><tr><th>Option</th><th class="r">Score</th><th class="r">Habit</th><th class="r">Noise</th><th class="r">Total</th></tr></thead>
-        <tbody>${rs.options.map(o => `<tr class="${o.id === rs.chosen ? 'chosen' : ''}"><td>${esc(o.label)}<span class="why">${esc(o.note)}</span></td><td class="r">${o.score.toFixed(2)}</td><td class="r">${o.bonus ? '+' + o.bonus.toFixed(2) : '–'}</td><td class="r">${(o.noise >= 0 ? '+' : '') + o.noise.toFixed(2)}</td><td class="r"><strong>${o.total.toFixed(2)}</strong></td></tr>`).join('')}</tbody>
+      table += `<div class="table-box"><table>
+        <thead><tr><th>Action</th><th class="r">Base</th><th class="r">Stance</th><th class="r">Habit</th><th class="r">Total</th></tr></thead>
+        <tbody>${rs.options.map(o => `<tr class="${o.id === rs.chosen ? 'chosen' : ''}"><td>${esc(o.label)}<span class="why">${esc(o.note)}</span></td><td class="r">${o.score.toFixed(2)}</td><td class="r">${sg(o.stanceBias)}</td><td class="r">${sg(o.bonus)}</td><td class="r"><strong>${o.total.toFixed(2)}</strong></td></tr>`).join('')}</tbody>
       </table></div>
-      <p class="note">Last decision at ${fmt(rs.tick)}. "Habit" is a small bonus for sticking with the current plan. Noise size ±${rs.sigma.toFixed(2)} comes from Decision-making ${b.ratings.decisionMaking}.</p>`;
+      <p class="note">Last decision at ${fmt(rs.tick)}. The "Stance" column is how much the current Stance pushes each action up or down. Actions carry no random noise.</p>`;
     }
     $('#brain-' + t).innerHTML = `
       <p class="brain-status">Reaction ${b.ratings.reaction}: acts on what it saw <strong class="num">${(delay / TPS).toFixed(2)} s</strong> ago.${rs && rs.status ? ` <strong>${esc(rs.status)}.</strong>` : ''}</p>
@@ -1325,7 +1467,7 @@ const LaneDuel = (() => {
   }
 
   // ---------- log ----------
-  const KIND = { refused: 'Refused', death: 'Kill', hit: 'Hit', miss: 'Miss', tower: 'Tower', towerdown: 'Tower', recall: 'Recall', cast: 'Cast', respawn: 'Spawn', lost: 'Lost', ai: 'Plan', level: 'Level', shop: 'Shop', wave: 'Wave' };
+  const KIND = { refused: 'Refused', death: 'Kill', hit: 'Hit', miss: 'Miss', tower: 'Tower', towerdown: 'Tower', recall: 'Recall', cast: 'Cast', respawn: 'Spawn', lost: 'Lost', ai: 'Stance', level: 'Level', shop: 'Shop', wave: 'Wave' };
   function renderLog() {
     const items = match.sim.events.slice(-100).concat(match.aiLog.slice(-80)).sort((a, b) => b.tick - a.tick).slice(0, 80);
     $('#log').innerHTML = items.length ? items.map(e => `<li class="${e.team || ''} ${e.kind}"><span class="t">${fmt(e.tick)}</span><span class="k">${KIND[e.kind] || e.kind}</span><span class="m">${esc(e.text)}</span></li>`).join('') : '<li><span class="t"></span><span class="k"></span><span class="m note">Nothing yet.</span></li>';

@@ -84,6 +84,14 @@ _Avoid_: Coach, commander
 One of the macro options a Team Brain chooses between (e.g. Farm Lanes, Take Objective, Split-Push).
 _Avoid_: Strategy, macro call
 
+**Stance**:
+A Player's current intention in lane (e.g. Farm and punish, Shove and reset, All-in), held for a few seconds and shaping which actions they take.
+_Avoid_: Mode, state, plan (a Team Plan is the Team Brain's)
+
+**Matchup Profile**:
+What a Hero brings to a lane fight (range, escape, engage reach, poke), worked out from its Ability Types and Effects.
+_Avoid_: Matchup chart, counter list
+
 **Role Brain**:
 The part of a Player's AI that carries out their Assignment using the rules for their Role.
 _Avoid_: Hero AI, micro AI
